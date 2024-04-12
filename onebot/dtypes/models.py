@@ -7,39 +7,26 @@ from onebot.dtypes.enum import Gender, GroupRole
 from pydantic import BaseModel, Field
 
 
-class MessageBase(BaseModel):
-    __type__ = None
-
-    def to_dict(self):
-        return {
-            'type': self.__type__,
-            'data': self.model_dump(mode='python')
-        }
-
-
-class Text(MessageBase):
+class Text(BaseModel):
     """
     文本
     """
-    __type__ = 'text'
     # 文本内容
     text: str
 
 
-class Face(MessageBase):
+class Face(BaseModel):
     """
     表情
     """
-    __type__ = 'face'
     # 表情ID
     id: str
 
 
-class Image(MessageBase):
+class Image(BaseModel):
     """
     图片
     """
-    __type__ = 'image'
     # 图片文件名
     file: str
     # 图片 URL
@@ -54,11 +41,10 @@ class Image(MessageBase):
     file_size: int = None
 
 
-class Record(MessageBase):
+class Record(BaseModel):
     """
     语音
     """
-    __type__ = 'record'
     # 语音文件名
     file: str
     # 语音存放路径
@@ -71,7 +57,6 @@ class Video(BaseModel):
     """
     视频
     """
-    __type__ = 'video'
     # 视频文件名
     file: str
     # 视频路径
@@ -86,7 +71,6 @@ class File(BaseModel):
     """
     文件
     """
-    __type__ = 'file'
     # 文件名
     file: str
     # 文件路径
@@ -101,8 +85,6 @@ class At(BaseModel):
     """
     At
     """
-    __type__ = 'at'
-
     qq: str
 
 
@@ -110,8 +92,6 @@ class Json(BaseModel):
     """
     Json
     """
-    __type__ = 'json'
-
     data: str
 
 
@@ -119,8 +99,6 @@ class Reply(BaseModel):
     """
     消息回复
     """
-    __type__ = 'reply'
-
     id: int
 
 
@@ -232,6 +210,3 @@ class Sender(BaseModel):
     nickname: str
     # 用户角色
     role: GroupRole = Field(None)
-
-
-
