@@ -262,8 +262,8 @@ class Depends(Depend):
             kwargs = {}
         if args is None:
             args = ()
+        # 函数
         self.fn = fn
-        # 参数
         self.args = args
         self.kwargs = kwargs
         # 是否使用缓存
