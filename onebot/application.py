@@ -12,7 +12,7 @@ from typing import List, Union, Any, Dict
 from loguru import logger
 
 from .dtypes import MessageBuilder
-from .dtypes.models import Login, Friend, Group, MessageBase, Message
+from .dtypes.models import Login, Friend, Group, Message
 from .exceptions import SendMessageError
 from .fliters import Filter
 from .handlers import event_dispatcher, HandlerRegister
@@ -26,7 +26,7 @@ class OneBot:
         :param host:   主机地址
         :param port:   接收端口
         """
-        self._url = f'ws://{host}:{port}'
+        self._url = 'ws://{host}:{port}'.format(host=host, port=port)
         # websocket
         self._websocket = None
         # websocket headers
@@ -136,7 +136,7 @@ class OneBot:
         if isinstance(message, str):
             message_chain = [{'type': 'text', 'data': {'text': message}}]
         elif isinstance(message, MessageBuilder):
-            message_chain = message.message
+            message_chain = message.to_list()
         else:
             raise SendMessageError('message参数类型错误')
         response = await self._send_message({
@@ -158,7 +158,7 @@ class OneBot:
         if isinstance(message, str):
             message_chain = [{'type': 'text', 'data': {'text': message}}]
         elif isinstance(message, MessageBuilder):
-            message_chain = message.message
+            message_chain = message.to_list()
         else:
             raise SendMessageError('参数类型错误')
         response = await self._send_message({
