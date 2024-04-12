@@ -1,0 +1,93 @@
+import asyncio
+from inspect import Parameter, iscoroutinefunction
+from typing import List, Dict, Set, Any
+
+from .interfaces import Resolver
+from .resolver.app import AppResolver
+from .resolver.depends import DependsResolver
+
+
+class ResolverComposite(Resolver):
+    """
+    参数解析器组合器
+    """
+
+    def __init__(self):
+        # 解析器
+        self.argument_resolves: List[Resolver] = []
+        # 可解析参数缓存
+        self.argument_resolve_cache: Dict[Parameter, Resolver] = {}
+        # 不可解析参数缓存
+        self.unresolvable_param: Set[Parameter] = set()
+        # 是否为异步函数
+        self.func_async_status = {}
+
+        self.loop = asyncio.get_event_loop()
+
+    def get_parameter_resolve(self, parameter):
+        if parameter in self.unresolvable_param:
+            return
+        if parameter in self.argument_resolve_cache:
+            return self.argument_resolve_cache.get(parameter)
+        for resolver in self.argument_resolves:
+            if resolver.support_parameter(parameter):
+                self.argument_resolve_cache[parameter] = resolver
+                return resolver
+        self.unresolvable_param.add(parameter)
+
+    def support_parameter(self, parameter: Parameter):
+        """
+        该参数是否由该解析器解析
+        :param parameter:
+        :return:
+        """
+        return self.get_parameter_resolve(parameter) is not None
+
+    async def support_resolver(self, parameter: Parameter, message: dict, context: dict) -> bool:
+        """
+        该参数是否支持解析
+        :param parameter:
+        :param message:
+        :param context:
+        :return:
+        """
+        support_resolver = self.get_parameter_resolve(parameter).support_resolver
+        if support_resolver not in self.func_async_status:
+            self.func_async_status[support_resolver] = iscoroutinefunction(support_resolver)
+        if self.func_async_status[support_resolver]:
+            return await support_resolver(parameter, message, context)
+        else:
+            return await self.loop.run_in_executor(None, resolver, message, context)  # type: ignore
+
+    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
+        resolver = self.argument_resolve_cache.get(parameter).resolver
+        if resolver not in self.func_async_status:
+            self.func_async_status[resolver] = iscoroutinefunction(resolver)
+        if self.func_async_status[resolver]:
+            return await resolver(parameter, app, message, context)
+        else:
+            return await self.loop.run_in_executor(None, resolver, parameter, app, message, context)
+
+    async def close(self, parameter, context: dict):
+        """
+        关闭函数
+        """
+        close = self.get_parameter_resolve(parameter).close
+        if close not in self.func_async_status:
+            self.func_async_status[close] = iscoroutinefunction(close)
+        if self.func_async_status[close]:
+            return await close(parameter, context)
+        else:
+            return await self.loop.run_in_executor(None, close, parameter, context)
+
+    def add_resolve(self, resolver: Resolver):
+        """
+        添加参数解决器
+        :param resolver:  解决器
+        """
+        self.argument_resolves.append(resolver)
+
+
+parameter_resolver = ResolverComposite()
+parameter_resolver.add_resolve(AppResolver())
+parameter_resolver.add_resolve(DependsResolver())
