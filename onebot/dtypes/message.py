@@ -85,14 +85,12 @@ class MessageBuilder:
     def reply(self, message_id: int):
         if 'reply' in self._exists:
             raise BuildMessageError('仅可以设置一条消息回复')
-        index = 0
-        data = {
+        self._message.appendleft({
             'type': 'reply',
             'data': {
                 'id': message_id
             }
-        }
-        self._message.insert(index, data)
+        })
         self._exists.add('reply')
         return self
 
