@@ -148,4 +148,4 @@ class MessageEventHandler(EventHandler):
             logger.info("用户: {} 消息内容: {}", message['user_id'], message['raw_message'])
         context = {}
         message_process_factory.process(message['message'], context)
-        await app.handlers.handler(app, message, context)
+        await app.handlers.message_handler(app, message, context)
