@@ -5,6 +5,7 @@ import json
 import sys
 import uuid
 
+import aiocron
 import websockets
 
 from asyncio import Future
@@ -15,7 +16,7 @@ from .dtypes import MessageBuilder
 from .dtypes.models import Login, Friend, Group, Message
 from .exceptions import SendMessageError
 from .fliters import Filter
-from .handlers import event_dispatcher, HandlerRegister
+from .handlers import event_dispatcher, TaskRegistry
 
 
 class OneBot:
@@ -36,7 +37,7 @@ class OneBot:
         # 机器人ID
         self.robot_id: str = ''
         # 消息处理器
-        self.handlers = HandlerRegister()
+        self.handlers = TaskRegistry()
         # 消息响应
         self.message_response: Dict[Any, Future] = {}
         # 事件循环
@@ -63,7 +64,18 @@ class OneBot:
             filters = []
 
         def decorator(func):
-            self.handlers.register(func, order, first_over, filters, nullable, skipnull)
+            self.handlers.register_handler(func, order, first_over, filters, nullable, skipnull)
+
+        return decorator
+
+    def crontab(self, cron: str):
+        """
+        定时任务
+        :param cron:    执行时间
+        :return:
+        """
+        def decorator(fn):
+            self.handlers.register_crontab(cron, fn, self)
 
         return decorator
 
@@ -162,7 +174,7 @@ class OneBot:
         else:
             raise SendMessageError('参数类型错误')
         response = await self._send_message({
-            'action': 'send_group_msg',
+            'action': 'send_private_msg',
             'params': {
                 'user_id': user_id,
                 'message': message_chain
@@ -215,7 +227,6 @@ class OneBot:
                 'times': times
             }
         })
-        print(response)
 
     async def get_friend_list(self) -> List[Friend]:
         """
