@@ -1,10 +1,11 @@
 import asyncio
-from inspect import Parameter, iscoroutinefunction
-from typing import List, Dict, Set, Any
+from inspect import Parameter, iscoroutinefunction, getfile, signature
+from typing import List, Dict, Set, Any, Callable
 
 from .interfaces import Resolver
 from .resolver.app import AppResolver
 from .resolver.depends import DependsResolver
+from ..exceptions import ParameterError
 
 
 class ResolverComposite(Resolver):
@@ -42,6 +43,18 @@ class ResolverComposite(Resolver):
         :return:
         """
         return self.get_parameter_resolve(parameter) is not None
+
+    def support_function(self, fn: Callable):
+        """
+        检查函数参数是否支持解析
+        :param fn:  函数
+        :return:
+        """
+        arguments = signature(fn).parameters.values()
+        for param in arguments:
+            if not self.support_parameter(param):
+                raise ParameterError('参数不支持解析', fn, param)
+        return arguments
 
     async def support_resolver(self, parameter: Parameter, message: dict, context: dict) -> bool:
         """
