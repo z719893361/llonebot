@@ -172,7 +172,7 @@ class GetJSON(Depend):
     """
     获取JSON
     """
-    def __init__(self, text=True):
+    def __init__(self, text=False):
         self.text = text
 
     async def support(self, message: dict, context: dict) -> bool:
