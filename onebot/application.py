@@ -95,7 +95,7 @@ class OneBot:
         return decorator
 
     async def _connecting(self):
-        self.connected_state = False
+        self.connect_state = False
         while True:
             try:
                 self._websocket = await websockets.connect(self._url, extra_headers=self._headers)
@@ -103,7 +103,7 @@ class OneBot:
             except (ConnectionRefusedError, websockets.exceptions.ConnectionClosedError):
                 logger.error('连接失败，等待10秒重试...')
                 await asyncio.sleep(10)
-        self.connected_state = True
+        self.connect_state = True
         logger.info('websocket连接成功！')
 
     async def _receiver(self):
@@ -576,11 +576,12 @@ class OneBot:
             }
         })
 
-    async def clean_cache(self):
+    async def clean_cache(self) -> bool:
         """
         清理QQ缓存
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'clean_cache',
         })
+        return response.get('status') == 'ok'
