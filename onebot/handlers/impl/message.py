@@ -40,7 +40,7 @@ class JsonProcessor(MessageProcessor):
     type = 'json'
 
     def process(self, type_: str, data: dict, context: dict) -> None:
-        context['json'] = json.loads(data['data'])
+        context['json'] = data['data']
         context['message'].append(Json.model_validate(data))
 
 
@@ -148,4 +148,4 @@ class MessageEventHandler(EventHandler):
             logger.info("用户: {} 消息内容: {}", message['user_id'], message['raw_message'])
         context = {}
         message_process_factory.process(message['message'], context)
-        await app.handlers.message_handler(app, message, context)
+        await app.task_manager.message_handler(app, message, context)
