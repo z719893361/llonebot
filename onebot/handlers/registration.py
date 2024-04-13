@@ -30,7 +30,10 @@ class Config:
     skipnull: bool
 
 
-class TaskRegistry:
+class HandlerManager:
+    """
+    事件管理器
+    """
 
     def __init__(self):
         self.handlers: List[Config] = []
@@ -40,6 +43,8 @@ class TaskRegistry:
         self.method_async_state: Dict[Callable, bool] = {}
 
         self.loop = asyncio.get_event_loop()
+
+        self.event: Dict[str, List[Callable]] = {}
 
     async def message_handler(self, app, message: dict, context: dict) -> None:
         """
@@ -122,6 +127,9 @@ class TaskRegistry:
         """
 
         async def task():
+            # 未连接状态不执行定时任务
+            if not app.connect_state:
+                return
             param_close = deque()
             param_value = deque()
             try:
@@ -136,9 +144,44 @@ class TaskRegistry:
                     else:
                         await self.loop.run_in_executor(None, fn, *param_value)
             except Exception as e:
-                for param in param_close:
-                    await parameter_resolver.close(param, {})
                 logger.exception(e)
+            for param in param_close:
+                try:
+                    await parameter_resolver.close(param, {})
+                except Exception as e:
+                    logger.exception(e)
         parameters = parameter_resolver.support_function(fn)
         async_state = iscoroutinefunction(fn)
         aiocron.crontab(cron, task)
+
+    def register_event(self, fn: Callable, event: str):
+        """
+        注册事件
+        :param fn:      方法
+        :param event:   事件
+        :return:
+        """
+        self.method_parameters[fn] = parameter_resolver.support_function(fn)
+        self.method_async_state[fn] = iscoroutinefunction(fn)
+        self.event.setdefault(event, []).append(fn)
+
+    async def execute_event_task(self, event: str, app):
+        if event not in self.event:
+            return
+        param_close = deque()
+        for fn in self.event[event]:
+            param_value = deque()
+            for param in self.method_parameters[fn]:
+                param_value.append(await parameter_resolver.resolver(param, app, {}, {}))
+            try:
+                if self.method_async_state[fn]:
+                    await fn(*param_value)
+                else:
+                    fn(*param_value)
+            except Exception as err:
+                logger.exception(err)
+        for param in param_close:
+            try:
+                await parameter_resolver.close(param, {})
+            except Exception as err:
+                logger.exception(err)
