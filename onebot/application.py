@@ -5,7 +5,6 @@ import json
 import sys
 import uuid
 
-import aiocron
 import websockets
 
 from asyncio import Future
@@ -16,14 +15,13 @@ from .dtypes import MessageBuilder
 from .dtypes.models import Login, Friend, Group, Message
 from .exceptions import SendMessageError
 from .fliters import Filter
-from .handlers import event_dispatcher, TaskRegistry
+from .handlers import event_dispatcher, HandlerManager
 
 
 class OneBot:
 
     def __init__(self, host: str, port: int, token: str = None):
         """
-
         :param host:   主机地址
         :param port:   接收端口
         """
@@ -31,17 +29,21 @@ class OneBot:
         # websocket
         self._websocket = None
         # websocket headers
-        self.extra_headers = []
+        self._headers = []
         if token is not None:
-            self.extra_headers.append(('Authorization', f'Bearer {token}'))
+            self._headers.append(('Authorization', f'Bearer {token}'))
+        # Websocket连接状态
+        self.connect_state = False
         # 机器人ID
-        self.robot_id: str = ''
+        self.robot_id: int = ...
         # 消息处理器
-        self.handlers = TaskRegistry()
+        self.task_manager = HandlerManager()
         # 消息响应
         self.message_response: Dict[Any, Future] = {}
         # 事件循环
         self.loop = asyncio.get_event_loop()
+        # 定时任务上下文
+        self._cron_context = {}
 
     def listener(
             self,
@@ -64,7 +66,7 @@ class OneBot:
             filters = []
 
         def decorator(func):
-            self.handlers.register_handler(func, order, first_over, filters, nullable, skipnull)
+            self.task_manager.register_handler(func, order, first_over, filters, nullable, skipnull)
 
         return decorator
 
@@ -74,10 +76,35 @@ class OneBot:
         :param cron:    执行时间
         :return:
         """
+
         def decorator(fn):
-            self.handlers.register_crontab(cron, fn, self)
+            self.task_manager.register_crontab(cron, fn, self)
 
         return decorator
+
+    def startup(self):
+        def decorator(fn):
+            self.task_manager.register_event(fn, 'startup')
+
+        return decorator
+
+    def shutdown(self):
+        def decorator(fn):
+            self.task_manager.register_event(fn, 'shutdown')
+
+        return decorator
+
+    async def _connecting(self):
+        self.connected_state = False
+        while True:
+            try:
+                self._websocket = await websockets.connect(self._url, extra_headers=self._headers)
+                break
+            except (ConnectionRefusedError, websockets.exceptions.ConnectionClosedError):
+                logger.error('连接失败，等待10秒重试...')
+                await asyncio.sleep(10)
+        self.connected_state = True
+        logger.info('websocket连接成功！')
 
     async def _receiver(self):
         """
@@ -85,24 +112,29 @@ class OneBot:
         """
         while True:
             try:
-                self.websocket = await websockets.connect(self._url, extra_headers=self.extra_headers)
-                logger.info('websocket连接成功！')
-                while True:
-                    data = await self.websocket.recv()
-                    logger.debug(data)
-                    self.loop.create_task(event_dispatcher.handler(self, json.loads(data), {}))
-            except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError):
-                logger.error('连接异常，等待 10 秒后重试')
-                await asyncio.sleep(10)
+                data = await self._websocket.recv()
+                logger.debug(data)
+                self.loop.create_task(event_dispatcher.handler(self, json.loads(data), {}))
+            except websockets.exceptions.ConnectionClosedError:
+                await self._connecting()
 
     def run(self, log_level='INFO'):
+        """
+        启动入口
+        :param log_level:   日志等级
+        """
         # 设置日志
         logger.remove()
         logger.add(sys.stdout, level=log_level)
+        # 连接websocket
+        self.loop.run_until_complete(self._connecting())
+        receiver_task = self.loop.create_task(self._receiver())
+        self.loop.create_task(self.task_manager.execute_event_task('startup', self))
         try:
-            self.loop.run_until_complete(self._receiver())
+            self.loop.run_until_complete(receiver_task)
         except KeyboardInterrupt:
-            logger.info('shutdown')
+            self.loop.run_until_complete(self.task_manager.execute_event_task('shutdown', self))
+            self.loop.run_until_complete(self._websocket.close())
 
     async def _send_message(self, message: dict) -> dict:
         """
@@ -114,13 +146,18 @@ class OneBot:
         future = Future()
         message['echo'] = message_id
         self.message_response[message_id] = future
-        await self.websocket.send(json.dumps(message))
+        await self._websocket.send(json.dumps(message))
         try:
             return await asyncio.wait_for(future, 10)
         finally:
             del self.message_response[message_id]
 
-    def set_response(self, message_id: Any, message: Any):
+    def set_response(self, message_id: Any, message: Any) -> None:
+        """
+        异步设置响应
+        :param message_id:  消息ID
+        :param message:     响应内容
+        """
         if message_id in self.message_response:
             self.message_response[message_id].set_result(message)
 
@@ -262,10 +299,7 @@ class OneBot:
         :return:
         """
         response = await self._send_message({
-            'action': 'get_group_list',
-            'params': {
-
-            }
+            'action': 'get_group_list'
         })
         if response.get('status') == 'ok':
             return [Group.model_validate(group_info) for group_info in response.get('data', [])]
