@@ -28,4 +28,4 @@ class RequestEventHandler(EventHandler):
                     '邀请入群 - 群号: {}',
                     message['group_id']
                 )
-        await app.handlers.message_handler(app, message, context)
+        await app.task_manager.message_handler(app, message, context)
