@@ -255,6 +255,18 @@ class GetGroupInviteRequest(Depend):
         return GroupInviteRequest.model_validate(message)
 
 
+class GetContext(Depend):
+    """
+    邀请进群
+    """
+
+    async def support(self, message: dict, context: dict) -> bool:
+        return True
+
+    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> dict:
+        return context
+
+
 class Depends(Depend):
     def __init__(self, fn, use_cache=True, args=None, kwargs=None):
         # 方法
