@@ -11,6 +11,7 @@ setuptools.setup(
     install_requires=[
         'websockets',
         'pydantic',
+        'aiocron'
     ],
     python_requires='>=3.7'
 )
