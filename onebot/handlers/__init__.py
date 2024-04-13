@@ -1,3 +1,3 @@
 from .composite import event_dispatcher
-from .registration import HandlerRegister
+from .registration import TaskRegistry
 from .interfaces import EventHandler
