@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from dataclasses import dataclass
-from inspect import signature, getfile, iscoroutinefunction, Parameter
+from inspect import iscoroutinefunction, Parameter
 from typing import Callable, List, Dict, ValuesView
 
+import aiocron
 from loguru import logger
 
+from onebot.exceptions import ParameterError
 from onebot.parameter import parameter_resolver
 from onebot.fliters import Filter
 
@@ -28,58 +30,18 @@ class Config:
     skipnull: bool
 
 
-class HandlerRegister:
+class TaskRegistry:
 
     def __init__(self):
         self.handlers: List[Config] = []
         # 方法参数缓存
         self.method_parameters: Dict[Callable, ValuesView[Parameter]] = {}
-        # 异步函数缓存
-        self.method_async_status: Dict[Callable, bool] = {}
+        # 是否异步函数缓存
+        self.method_async_state: Dict[Callable, bool] = {}
 
         self.loop = asyncio.get_event_loop()
 
-    def register(
-            self,
-            fn: Callable,
-            order: int = 0,
-            first_over: bool = False,
-            filters: List[Filter] = None,
-            nullable: bool = True,
-            skipnull: bool = True
-    ):
-        """
-        注册处理器
-        :param fn           回调函数
-        :param order:       优先级
-        :param first_over:  首次匹配则结束, True: 触发第一次后就跳过
-        :param filters:     过滤器
-        :param nullable:    参数解析遇到None(解析失败, 没有返回结果)是否抛出错误
-        :param skipnull:    如果参数解析结果为空值(解析失败，没有返回结果), True跳过函数调用, False继续调用(失败参数会传入None)
-        :return:
-        """
-        arguments = signature(fn).parameters.values()
-        for param in arguments:
-            if not parameter_resolver.support_parameter(param):
-                file_path = getfile(fn)
-                method_name = fn.__name__
-                error_message = f"Hit: {param.name}"
-                if param.annotation != param.empty:
-                    error_message += f":{param.annotation}"
-                if param.default != param.empty:
-                    error_message += f" = {param.default})"
-                error_message += f" 参数不支持解析, 文件路径: {file_path}, 方法名: {method_name}"
-                raise TypeError(error_message)
-        # 预处理函数，减少后续判断
-        self.method_parameters[fn] = signature(fn).parameters.values()
-        self.method_async_status[fn] = iscoroutinefunction(fn)
-        for filter_ in filters:
-            self.method_async_status[filter_.support] = iscoroutinefunction(filter_.support)
-        # 添加过滤器并排序
-        self.handlers.append(Config(fn, filters, order, first_over, nullable, skipnull))
-        self.handlers.sort(key=lambda x: x.order)
-
-    async def handler(self, app, message: dict, context: dict) -> None:
+    async def message_handler(self, app, message: dict, context: dict) -> None:
         """
         调用支持处理器
 
@@ -89,14 +51,14 @@ class HandlerRegister:
         :return:
         """
         # 消息处理后关闭列表，双向队列
-        after_close_deque = deque()
+        param_close = deque()
         try:
             for handler in self.handlers:
                 is_continue = False
                 for f in handler.filters:
-                    if f not in self.method_async_status:
-                        self.method_async_status[f.support] = iscoroutinefunction(f.support)
-                    if self.method_async_status[f.support]:
+                    if f not in self.method_async_state:
+                        self.method_async_state[f.support] = iscoroutinefunction(f.support)
+                    if self.method_async_state[f.support]:
                         if not await f.support(app, message, context):
                             is_continue = True
                             break
@@ -106,20 +68,77 @@ class HandlerRegister:
                             break
                 if is_continue:
                     continue
-                resolved_params = []
+                param_value = []
                 for param in self.method_parameters[handler.func]:
                     if not await parameter_resolver.support_resolver(param, message, context):
                         break
-                    resolved_params.append(await parameter_resolver.resolver(param, app, message, context))
-                    after_close_deque.append(param)
+                    param_value.append(await parameter_resolver.resolver(param, app, message, context))
+                    param_close.append(param)
                 else:
-                    if self.method_async_status[handler.func]:
-                        await handler.func(*resolved_params)
+                    if self.method_async_state[handler.func]:
+                        await handler.func(*param_value)
                     else:
-                        await self.loop.run_in_executor(None, handler.func, *resolved_params)
+                        await self.loop.run_in_executor(None, handler.func, *param_value)
                     if handler.first_over:
                         return
         except Exception as e:
-            for param in after_close_deque:
+            for param in param_close:
                 await parameter_resolver.close(param, context)
             logger.exception(e)
+
+    def register_handler(
+            self,
+            fn: Callable,
+            order: int = 0,
+            first_over: bool = False,
+            filters: List[Filter] = None,
+            nullable: bool = True,
+            skipnull: bool = True
+    ):
+        """
+        创建消息处理器
+        :param fn           回调函数
+        :param order:       优先级
+        :param first_over:  首次匹配则结束, True: 触发第一次后就跳过
+        :param filters:     过滤器
+        :param nullable:    参数解析遇到None(解析失败, 没有返回结果)是否抛出错误
+        :param skipnull:    如果参数解析结果为空值(解析失败，没有返回结果), True跳过函数调用, False继续调用(失败参数会传入None)
+        :return:
+        """
+        self.method_parameters[fn] = parameter_resolver.support_function(fn)
+        self.method_async_state[fn] = iscoroutinefunction(fn)
+        for filter_ in filters:
+            self.method_async_state[filter_.support] = iscoroutinefunction(filter_.support)
+        self.handlers.append(Config(fn, filters, order, first_over, nullable, skipnull))
+        self.handlers.sort(key=lambda x: x.order)
+
+    def register_crontab(self, cron: str, fn: Callable, app):
+        """
+        创建定时任务
+        :param fn:      任务函数
+        :param cron:    定时表达式
+        :param app:     主程序
+        :return:
+        """
+
+        async def task():
+            param_close = deque()
+            param_value = deque()
+            try:
+                for param in parameters:
+                    if not await parameter_resolver.support_resolver(param, {}, {}):
+                        raise ParameterError('定时任务参数解析错误', fn, param)
+                    param_value.append(await parameter_resolver.resolver(param, app, {}, {}))
+                    param_close.append(param)
+                else:
+                    if async_state:
+                        await fn(*param_value)
+                    else:
+                        await self.loop.run_in_executor(None, fn, *param_value)
+            except Exception as e:
+                for param in param_close:
+                    await parameter_resolver.close(param, {})
+                logger.exception(e)
+        parameters = parameter_resolver.support_function(fn)
+        async_state = iscoroutinefunction(fn)
+        aiocron.crontab(cron, task)
