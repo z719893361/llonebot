@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from inspect import Parameter, isgeneratorfunction, isasyncgenfunction, iscoroutinefunction
 from typing import Union, Optional, List, Set, Any, TYPE_CHECKING
 
@@ -171,12 +172,17 @@ class GetJSON(Depend):
     """
     获取JSON
     """
+    def __init__(self, text=True):
+        self.text = text
 
     async def support(self, message: dict, context: dict) -> bool:
         return 'json' in context
 
     async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[dict]:
-        return context.get('json')
+        if self.text:
+            return context.get('json')
+        else:
+            return json.loads(context.get('json'))
 
 
 class GetImage(Depend):
