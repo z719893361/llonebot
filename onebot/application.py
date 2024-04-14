@@ -8,12 +8,14 @@ import uuid
 import websockets
 
 from asyncio import Future
-from typing import List, Union, Any, Dict
+from typing import List, Union, Any, Dict, Optional
 from loguru import logger
 
+from websockets import ConnectionClosedError, ConnectionClosedOK
+
 from .dtypes import MessageBuilder
-from .dtypes.models import Login, Friend, Group, Message
-from .exceptions import SendMessageError
+from .dtypes.models import Login, Friend, Group, Message, GroupUser, Version
+from .exceptions import SendMessageError, AuthenticationError
 from .fliters import Filter
 from .handlers import event_dispatcher, HandlerManager
 
@@ -103,19 +105,23 @@ class OneBot:
             except (ConnectionRefusedError, websockets.exceptions.ConnectionClosedError):
                 logger.error('连接失败，等待10秒重试...')
                 await asyncio.sleep(10)
-        self.connect_state = True
+        message = await self._websocket.recv()
+        message = json.loads(message)
+        if message.get('retcode') == 1403:
+            raise AuthenticationError('Token认证失败')
         logger.info('websocket连接成功！')
+        self.connect_state = True
 
     async def _receiver(self):
         """
-        消息接收和处理
+        消息接收并处理
         """
         while True:
             try:
                 data = await self._websocket.recv()
                 logger.debug(data)
                 self.loop.create_task(event_dispatcher.handler(self, json.loads(data), {}))
-            except websockets.exceptions.ConnectionClosedError:
+            except (ConnectionClosedError, ConnectionClosedOK):
                 await self._connecting()
 
     def run(self, log_level='INFO'):
@@ -123,17 +129,22 @@ class OneBot:
         启动入口
         :param log_level:   日志等级
         """
-        # 设置日志
+        # 删除默认日志
         logger.remove()
+        # 添加日志
         logger.add(sys.stdout, level=log_level)
-        # 连接websocket
+        # 连接WebSocket
         self.loop.run_until_complete(self._connecting())
-        receiver_task = self.loop.create_task(self._receiver())
+        # 启动消息监听任务
+        self.loop.create_task(self._receiver())
+        # 调用启动事件
         self.loop.create_task(self.task_manager.execute_event_task('startup', self))
         try:
-            self.loop.run_until_complete(receiver_task)
+            self.loop.run_forever()
         except KeyboardInterrupt:
+            # 调用结束事件
             self.loop.run_until_complete(self.task_manager.execute_event_task('shutdown', self))
+            # 关闭websocket连接
             self.loop.run_until_complete(self._websocket.close())
 
     async def _send_message(self, message: dict) -> dict:
@@ -222,11 +233,11 @@ class OneBot:
         else:
             raise SendMessageError(json.dumps(response))
 
-    async def get_msg(self, message_id: int) -> Message:
+    async def get_msg(self, message_id: int) -> Optional[Message]:
         """
         获取消息
         :param message_id:  消息ID
-        :return:   MsgInfo实体类
+        :return: MsgInfo实体类
         """
         response = await self._send_message({
             'action': 'get_msg',
@@ -243,14 +254,15 @@ class OneBot:
         :param message_id:
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'delete_msg',
             'params': {
                 'message_id': message_id
             }
         })
+        return response.get('status') == 'ok'
 
-    async def send_like(self, user_id: int, times: int) -> None:
+    async def send_like(self, user_id: int, times: int) -> bool:
         """
         好友点赞
         :param user_id: QQ
@@ -264,6 +276,24 @@ class OneBot:
                 'times': times
             }
         })
+        return response.get('status') == 'ok'
+
+    async def get_friend_info(self, user_id: int, no_cache: bool = False) -> Optional[Friend]:
+        """
+        获取好友信息(目前尚不能获取陌生人信息)
+        :param user_id:     QQ号
+        :param no_cache:    是否不使用缓存（使用缓存可能更新不及时，但响应更快）
+        :return:
+        """
+        response = await self._send_message({
+            'action': 'get_stranger_info',
+            'params': {
+                'user_id': user_id,
+                'no_cache': no_cache,
+            }
+        })
+        if response.get('status') == 'ok':
+            return Friend.model_validate(response['data'])
 
     async def get_friend_list(self) -> List[Friend]:
         """
@@ -304,7 +334,7 @@ class OneBot:
         if response.get('status') == 'ok':
             return [Group.model_validate(group_info) for group_info in response.get('data', [])]
 
-    async def get_group_info(self, group_id: int, no_cache: bool) -> Group:
+    async def get_group_info(self, group_id: int, no_cache: bool) -> Optional[Group]:
         """
         获取群信息
         :param group_id:  群号
@@ -321,20 +351,22 @@ class OneBot:
         if response.get('status') == 'ok':
             return Group.model_validate(response['data'])
 
-    async def get_group_member_list(self, group_id: int):
+    async def get_group_member_list(self, group_id: int) -> List[GroupUser]:
         """
         获取群成员列表
         :param group_id:
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'get_group_member_list',
             'params': {
                 'group_id': group_id,
             }
         })
+        if response.get('status') == 'ok':
+            return [GroupUser.model_validate(row) for row in response['data']]
 
-    async def get_group_member_info(self, group_id: int, user_id: int, no_cache: bool = False):
+    async def get_group_member_info(self, group_id: int, user_id: int, no_cache: bool = False) -> Optional[GroupUser]:
         """
         获取群成员信息
 
@@ -343,16 +375,18 @@ class OneBot:
         :param no_cache:    是否使用缓存
         :return:
         """
-        await self._send_message({
-            'action': 'get_group_member_list',
+        response = await self._send_message({
+            'action': 'get_group_member_info',
             'params': {
                 'group_id': group_id,
                 'user_id': user_id,
                 'no_cache': no_cache
             }
         })
+        if response.get('status') == 'ok':
+            return GroupUser.model_validate(response['data'])
 
-    async def set_group_add_request(self, flag: str, sub_type: str, approve: bool, reason: str = ''):
+    async def set_group_add_request(self, flag: str, sub_type: str, approve: bool, reason: str = '') -> bool:
         """
         加群请求
         :param flag:        加群请求的 flag（需从上报的数据中获得）
@@ -361,7 +395,7 @@ class OneBot:
         :param reason:      拒绝理由（仅在拒绝时有效）
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'set_group_add_request',
             'params': {
                 'flag': flag,
@@ -370,23 +404,25 @@ class OneBot:
                 'reason': reason,
             }
         })
+        return response.get('status') == 'ok'
 
-    async def set_group_leave(self, group_id: int, is_dismiss: bool):
+    async def set_group_leave(self, group_id: int, is_dismiss: bool = False) -> bool:
         """
         退群
         :param group_id:    群号
         :param is_dismiss:  是否解散，如果登录号是群主，则仅在此项为 true 时能够解散
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'set_group_leave',
             'params': {
                 'group_id': group_id,
                 'is_dismiss': is_dismiss,
             }
         })
+        return response.get('status') == 'ok'
 
-    async def set_group_kick(self, group_id: int, user_id: int, reject_add_request: bool):
+    async def set_group_kick(self, group_id: int, user_id: int, reject_add_request: bool = False) -> bool:
         """
         群组踢人
         :param group_id:            群号
@@ -394,7 +430,7 @@ class OneBot:
         :param reject_add_request:  拒绝此人的加群请求
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'set_group_kick',
             'params': {
                 'group_id': group_id,
@@ -402,8 +438,9 @@ class OneBot:
                 'reject_add_request': reject_add_request,
             }
         })
+        return response.get('status') == 'ok'
 
-    async def set_group_ban(self, group_id: int, user_id: int, duration: int):
+    async def set_group_ban(self, group_id: int, user_id: int, duration: int) -> bool:
         """
         群组单人禁言
         :param group_id:    group_id
@@ -411,7 +448,7 @@ class OneBot:
         :param duration:    duration
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'set_group_ban',
             'params': {
                 'group_id': group_id,
@@ -419,12 +456,13 @@ class OneBot:
                 'duration': duration,
             }
         })
+        return response.get('status') == 'ok'
 
-    async def set_group_whole_ban(self, group_id: int, enable: bool):
+    async def set_group_whole_ban(self, group_id: int, enable: bool) -> bool:
         """
         群组禁言
-        :param group_id:    群主
-        :param enable:
+        :param group_id:    群号
+        :param enable:      开启 or 关闭
         :return:
         """
         await self._send_message({
@@ -435,15 +473,15 @@ class OneBot:
             }
         })
 
-    async def set_group_admin(self, group_id: int, user_id: int, enable: bool):
+    async def set_group_admin(self, group_id: int, user_id: int, enable: bool) -> bool:
         """
         群组设置管理员
         :param group_id:    群号
         :param user_id:     要设置管理员的 QQ 号
-        :param enable:      true 为设置，false 为取消
+        :param enable:      True 为设置, False为取消
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'set_group_admin',
             'params': {
                 'group_id': group_id,
@@ -451,8 +489,9 @@ class OneBot:
                 'enable': enable
             }
         })
+        return response.get('status') == 'ok'
 
-    async def set_group_card(self, group_id: int, user_id: int, card: str):
+    async def set_group_card(self, group_id: int, user_id: int, card: str) -> bool:
         """
         设置群名片（群备注）
         :param group_id:    群号
@@ -460,7 +499,7 @@ class OneBot:
         :param card:        群名片内容，不填或空字符串表示删除群名片
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'set_group_card',
             'params': {
                 'group_id': group_id,
@@ -468,54 +507,44 @@ class OneBot:
                 'card': card
             }
         })
+        return response.get('status') == 'ok'
 
-    async def set_group_name(self, group_id: int, group_name: str):
+    async def set_group_name(self, group_id: int, group_name: str) -> bool:
         """
         设置群名
         :param group_id:
         :param group_name:
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'set_group_name',
             'params': {
                 'group_id': group_id,
                 'group_name': group_name,
             }
         })
+        return response.get('status') == 'ok'
 
-    async def get_stranger_info(self, user_id: int, no_cache: bool):
-        """
-        获取陌生人信息
-        :param user_id:     QQ号
-        :param no_cache:    是否不使用缓存（使用缓存可能更新不及时，但响应更快）
-        :return:
-        """
-        await self._send_message({
-            'action': 'set_group_name',
-            'params': {
-                'user_id': user_id,
-                'no_cache': no_cache,
-            }
-        })
-
-    async def get_version_info(self):
+    async def get_version_info(self) -> Optional[Version]:
         """
         获取版本信息
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'get_version_info',
         })
+        if response.get('status') == 'ok':
+            return Version.model_validate(response['data'])
 
     async def get_status(self):
         """
         获取运行状态
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'get_status',
         })
+        return response.get('status') == 'ok'
 
     async def can_send_image(self) -> bool:
         """
@@ -537,7 +566,7 @@ class OneBot:
         })
         return response['yes']
 
-    async def get_image(self, file: str) -> str:
+    async def get_image(self, file: str) -> Optional[str]:
         """
         获取图片详情
         :param file:    收到的图片文件名（消息段的 file 参数），如 6B4DE3DFD1BD271E3297859D41C530F5.jpg
@@ -549,9 +578,10 @@ class OneBot:
                 'file': file,
             }
         })
-        return response['file']
+        if response.get('status') == 'ok':
+            return response['data']['file']
 
-    async def get_record(self, file: str, out_format: str) -> str:
+    async def get_record(self, file: str, out_format: str) -> Optional[str]:
         """
         获取语音文件
         :param file:        收到的语音文件名（消息段的 file 参数），如 0B38145AA44505000B38145AA4450500.silk
@@ -565,16 +595,18 @@ class OneBot:
                 'out_format': out_format
             }
         })
-        return response['file']
+        if response.get('status') == 'ok':
+            return response['data']['file']
 
-    async def get_file(self, file: str):
+    async def get_file(self, file: str) -> Optional[str]:
         response = await self._send_message({
-            'action': 'get_record',
+            'action': 'get_file',
             'params': {
-                'file': file,
-                'out_format': file
+                'file_id': file,
             }
         })
+        if response.get('status') == 'ok':
+            return response['data']['file']
 
     async def clean_cache(self) -> bool:
         """
