@@ -38,3 +38,11 @@ class ParameterError(Exception):
 
     def __str__(self):
         return f"{self.msg}, 函数: {self.fn.__name__} 参数: {self.parameter.name} 文件: {getfile(self.fn)}"
+
+
+class AuthenticationError(Exception):
+    """Token认证失败异常"""
+
+    def __init__(self, message="Token认证失败"):
+        self.message = message
+        super().__init__(self.message)
