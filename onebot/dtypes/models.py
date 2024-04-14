@@ -200,6 +200,45 @@ class Friend(BaseModel):
     level: int
 
 
+class GroupUser(BaseModel):
+    # 群号
+    group_id: int
+    # QQ 号
+    user_id: int
+    # 昵称
+    nickname: str
+    # 群名片／备注
+    card: str
+    # 性别
+    sex: str
+    # 年龄
+    age: int
+    # 地区
+    area: str
+    # 成员等级
+    level: int
+    # QQ等级
+    qq_level: int
+    # 加群时间戳
+    join_time: int
+    # 最后发言时间
+    last_sent_time: int
+    # 专属头衔过期时间戳
+    title_expire_time: int
+    # 是否不良记录成员
+    unfriendly: bool
+    # 是否允许修改群名片
+    card_changeable: bool
+    # 是否为机器人
+    is_robot: bool
+    # 禁言时间
+    shut_up_timestamp: int
+    # 身份
+    role: str
+    # 专属头衔
+    title: str
+
+
 class Sender(BaseModel):
     """
     消息发送人
@@ -210,3 +249,12 @@ class Sender(BaseModel):
     nickname: str
     # 用户角色
     role: GroupRole = Field(None)
+
+
+class Version(BaseModel):
+    """
+    版本信息
+    """
+    app_name: str
+    protocol_version: str
+    app_version: str
