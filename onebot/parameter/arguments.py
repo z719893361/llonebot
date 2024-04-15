@@ -8,9 +8,6 @@ from typing import Union, Optional, List, Set, Any, TYPE_CHECKING
 from onebot.dtypes.models import Record, File, Image, Sender, FriendAddRequest, GroupInviteRequest
 from onebot.parameter.interfaces import Depend
 
-if TYPE_CHECKING:
-    from onebot.application import OneBot
-
 
 class GetAPP(Depend):
     """
@@ -20,7 +17,7 @@ class GetAPP(Depend):
     async def support(self, context: dict, state: dict) -> bool:
         return True
 
-    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> OneBot:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict):
         return state['app']
 
 
@@ -165,8 +162,6 @@ class GetText(Depend):
         return 'text' in context
 
     async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Union[List[str], str, None]:
-        if 'text' not in context:
-            return
         if self.concat:
             return self.delimiter.join(context['text'])
         else:
@@ -277,18 +272,6 @@ class GetContext(Depend):
 
     async def resolver(self, parameter: Parameter, context: dict, state: dict) -> dict:
         return context
-
-
-class GetEnv(Depend):
-    """
-    获取环境变量
-    """
-
-    async def support(self, context: dict, state: dict) -> bool:
-        pass
-
-    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
-        pass
 
 
 class Depends(Depend):
