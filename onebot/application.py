@@ -38,8 +38,8 @@ class OneBot:
         self.connect_state = False
         # 机器人ID
         self.robot_id: int = 0
-        # 消息处理器
-        self.task_manager = HandlerManager()
+        # 消息|事件|定时任务 处理器
+        self.handler_manager = HandlerManager()
         # 消息响应
         self.message_response: Dict[Any, Future] = {}
         # 事件循环
@@ -68,7 +68,7 @@ class OneBot:
             filters = []
 
         def decorator(func):
-            self.task_manager.register_handler(func, order, first_over, filters, nullable, skipnull)
+            self.handler_manager.register_message_handler(func, order, first_over, filters, nullable, skipnull)
 
         return decorator
 
@@ -80,19 +80,19 @@ class OneBot:
         """
 
         def decorator(fn):
-            self.task_manager.register_crontab(cron, fn, self)
+            self.handler_manager.register_crontab(cron, fn, self)
 
         return decorator
 
     def startup(self):
         def decorator(fn):
-            self.task_manager.register_event(fn, 'startup')
+            self.handler_manager.register_event(fn, 'startup')
 
         return decorator
 
     def shutdown(self):
         def decorator(fn):
-            self.task_manager.register_event(fn, 'shutdown')
+            self.handler_manager.register_event(fn, 'shutdown')
 
         return decorator
 
@@ -109,8 +109,9 @@ class OneBot:
         message = json.loads(message)
         if message.get('retcode') == 1403:
             raise AuthenticationError('Token认证失败')
-        logger.info('websocket连接成功！')
+        self.robot_id = message['self_id']
         self.connect_state = True
+        logger.info('websocket连接成功！')
 
     async def _receiver(self):
         """
@@ -138,12 +139,12 @@ class OneBot:
         # 启动消息监听任务
         self.loop.create_task(self._receiver())
         # 调用启动事件
-        self.loop.create_task(self.task_manager.execute_event_task('startup', self))
+        self.loop.create_task(self.handler_manager.execute_event_task('startup', self))
         try:
             self.loop.run_forever()
         except KeyboardInterrupt:
             # 调用结束事件
-            self.loop.run_until_complete(self.task_manager.execute_event_task('shutdown', self))
+            self.loop.run_until_complete(self.handler_manager.execute_event_task('shutdown', self))
             # 关闭websocket连接
             self.loop.run_until_complete(self._websocket.close())
 
@@ -195,8 +196,10 @@ class OneBot:
         """
         if isinstance(message, str):
             message_chain = [{'type': 'text', 'data': {'text': message}}]
+            logger.info('发送消息 - 群组: {} 消息内容：{}', group_id, message)
         elif isinstance(message, MessageBuilder):
-            message_chain = message.to_list()
+            message_chain = list(message)
+            logger.info('发送消息 - 群组: {} 消息内容：{}', group_id, str(message))
         else:
             raise SendMessageError('message参数类型错误')
         response = await self._send_message({
@@ -212,13 +215,16 @@ class OneBot:
             raise SendMessageError(json.dumps(response))
 
     async def send_private_msg(
-            self, user_id: int,
+            self,
+            user_id: int,
             message: Union[str, MessageBuilder]
     ) -> int:
         if isinstance(message, str):
             message_chain = [{'type': 'text', 'data': {'text': message}}]
+            logger.info('发送消息 - 用户: {}  消息内容：{}', user_id, message)
         elif isinstance(message, MessageBuilder):
-            message_chain = message.to_list()
+            message_chain = list(message)
+            logger.info('发送消息 - 用户: {} 消息内容：{}', user_id, str(message))
         else:
             raise SendMessageError('参数类型错误')
         response = await self._send_message({
