@@ -17,7 +17,8 @@ from .dtypes import MessageBuilder
 from .dtypes.models import Login, Friend, Group, Message, GroupUser, Version
 from .exceptions import SendMessageError, AuthenticationError
 from .fliters import Filter
-from .handlers import event_dispatcher, HandlerManager
+from .handler import event_dispatcher
+from .core import EventManager
 
 
 class OneBot:
@@ -38,8 +39,8 @@ class OneBot:
         self.connect_state = False
         # 机器人ID
         self.robot_id: int = 0
-        # 消息|事件|定时任务 处理器
-        self.handler_manager = HandlerManager()
+        # 消息|事件|定时任务
+        self.event_manager = EventManager()
         # 消息响应
         self.message_response: Dict[Any, Future] = {}
         # 事件循环
@@ -70,7 +71,7 @@ class OneBot:
             filters = []
 
         def decorator(func):
-            self.handler_manager.register_message_handler(func, order, first_over, filters, nullable, skipnull)
+            self.event_manager.register_message_handler(func, order, first_over, filters, nullable, skipnull)
 
         return decorator
 
@@ -82,19 +83,19 @@ class OneBot:
         """
 
         def decorator(fn):
-            self.handler_manager.register_crontab(cron, fn, self)
+            self.event_manager.register_crontab(cron, fn, self)
 
         return decorator
 
     def startup(self):
         def decorator(fn):
-            self.handler_manager.register_event(fn, 'startup')
+            self.event_manager.register_event(fn, 'startup')
 
         return decorator
 
     def shutdown(self):
         def decorator(fn):
-            self.handler_manager.register_event(fn, 'shutdown')
+            self.event_manager.register_event(fn, 'shutdown')
 
         return decorator
 
@@ -144,12 +145,12 @@ class OneBot:
         # 启动消息监听任务
         self.loop.create_task(self._receiver())
         # 调用启动事件
-        self.loop.create_task(self.handler_manager.execute_event_task('startup', self))
+        self.loop.create_task(self.event_manager.execute_event_task('startup', self))
         try:
             self.loop.run_forever()
         except KeyboardInterrupt:
             # 调用结束事件
-            self.loop.run_until_complete(self.handler_manager.execute_event_task('shutdown', self))
+            self.loop.run_until_complete(self.event_manager.execute_event_task('shutdown', self))
             # 关闭websocket连接
             self.loop.run_until_complete(self._websocket.close())
 
