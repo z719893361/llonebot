@@ -7,4 +7,4 @@ class MetaEventEventHandler(EventHandler):
         return message.get('post_type') == 'meta_event'
 
     async def handler(self, app, message: dict, context: dict):
-        app.robot_id = str(message['self_id'])
+        app.robot_id = message['self_id']
