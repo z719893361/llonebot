@@ -55,7 +55,7 @@ class HandlerManager:
         :param context:     上下文
         :return:
         """
-        # 消息处理后关闭列表，双向队列
+        # 消息处理后关闭列表
         param_close = deque()
         try:
             for handler in self.handlers:
@@ -91,7 +91,7 @@ class HandlerManager:
                 await parameter_resolver.close(param, context)
             logger.exception(e)
 
-    def register_handler(
+    def register_message_handler(
             self,
             fn: Callable,
             order: int = 0,
