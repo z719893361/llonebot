@@ -9,8 +9,8 @@ class GroupMessage(Filter):
     是否为群组消息
     """
 
-    async def support(self, app, message: dict, context: dict) -> bool:
-        return 'group_id' in message
+    async def support(self, context: dict, state: dict) -> bool:
+        return 'group_id' in context['request']
 
 
 class GroupNumber(Filter):
@@ -28,15 +28,15 @@ class GroupNumber(Filter):
         else:
             raise ValueError('类型错误')
 
-    async def support(self, app, message: dict, context: dict):
-        return message.get('group_id') in self.numbers
+    async def support(self, context: dict, state: dict):
+        return context['request'].get('group_id') in self.numbers
 
 
 class AtMe(Filter):
     """
     是否@机器人
     """
-    async def support(self, app, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         if 'at_me' not in context:
-            context['at_me'] = 'at' in context and str(message.get('self_id')) in context['at']
+            context['at_me'] = 'at' in context and str(context['request'].get('self_id')) in context['at']
         return context['at_me']

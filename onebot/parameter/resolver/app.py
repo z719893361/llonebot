@@ -13,8 +13,8 @@ class AppResolver(Resolver):
         from onebot.application import OneBot
         return parameter.annotation is OneBot
 
-    async def support_resolver(self, parameter: Parameter, message: dict, context: dict) -> bool:
+    async def support_resolver(self, parameter: Parameter, context: dict, state: dict) -> bool:
         return True
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
-        return app
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
+        return state['app']

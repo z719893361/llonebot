@@ -16,25 +16,25 @@ class DependsResolver(Resolver):
     def support_parameter(self, parameter: Parameter):
         return isinstance(parameter.default, Depend)
 
-    async def support_resolver(self, parameter: Parameter, message: dict, context: dict) -> bool:
+    async def support_resolver(self, parameter: Parameter, context: dict, state: dict) -> bool:
         support = parameter.default.support
         if support not in self.method_async_status:
             self.method_async_status[support] = iscoroutinefunction(support)
         if self.method_async_status[support]:
-            return await support(message, context)
+            return await support(context['request'], context)
         else:
-            return await asyncio.to_thread(support, message, context)
+            return await asyncio.to_thread(support, context['request'], context)
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
         resolver = parameter.default.resolver
         if resolver not in self.method_async_status:
             self.method_async_status[resolver] = iscoroutinefunction(resolver)
         if self.method_async_status[resolver]:
-            return await resolver(parameter, app, message, context)
+            return await resolver(parameter, state['app'], context['request'], context)
         else:
-            return await asyncio.to_thread(resolver, parameter, app, message, context)
+            return await asyncio.to_thread(resolver, parameter, state['app'], context['request'], context)
 
-    async def close(self, parameter, context: dict):
+    async def close(self, parameter, context: dict, global_context: dict):
         close = parameter.default.close
         if close not in self.method_async_status:
             self.method_async_status[close] = iscoroutinefunction(close)

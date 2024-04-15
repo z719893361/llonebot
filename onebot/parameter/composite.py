@@ -61,44 +61,45 @@ class ResolverComposite(Resolver):
                 raise ParameterError('参数不支持解析', fn, param)
         return arguments
 
-    async def support_resolver(self, parameter: Parameter, message: dict, context: dict) -> bool:
+    async def support_resolver(self, parameter: Parameter, context: dict, state: dict) -> bool:
         """
         该参数是否支持解析
         :param parameter: 参数
-        :param message: 消息
         :param context: 上下文
+        :param state: 全局上下文
         :return:
         """
         support_resolver = self.get_parameter_resolve(parameter).support_resolver
         if support_resolver not in self.func_async_status:
             self.func_async_status[support_resolver] = iscoroutinefunction(support_resolver)
         if self.func_async_status[support_resolver]:
-            return await support_resolver(parameter, message, context)
+            return await support_resolver(parameter, context, state)
         else:
             return await self.loop.run_in_executor(None, resolver, message, context)  # type: ignore
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
         resolver = self.argument_resolve_cache.get(parameter).resolver
         if resolver not in self.func_async_status:
             self.func_async_status[resolver] = iscoroutinefunction(resolver)
         if self.func_async_status[resolver]:
-            return await resolver(parameter, app, message, context)
+            return await resolver(parameter, context, state)
         else:
-            return await self.loop.run_in_executor(None, resolver, parameter, app, message, context)
+            return await self.loop.run_in_executor(None, resolver, parameter, context, state)
 
-    async def close(self, parameter, context: dict):
+    async def close(self, parameter, context: dict, global_context: dict):
         """
         关闭函数
         :param parameter: 参数
         :param context: 上下文
+        :param global_context: 全局上下文
         """
         close = self.get_parameter_resolve(parameter).close
         if close not in self.func_async_status:
             self.func_async_status[close] = iscoroutinefunction(close)
         if self.func_async_status[close]:
-            return await close(parameter, context)
+            return await close(parameter, context, global_context)
         else:
-            return await self.loop.run_in_executor(None, close, parameter, context)
+            return await self.loop.run_in_executor(None, close, parameter, context, global_context)
 
     def add_resolve(self, resolver: Resolver):
         """

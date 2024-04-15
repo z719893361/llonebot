@@ -9,5 +9,11 @@ class Filter(ABC):
     """
 
     @abstractmethod
-    async def support(self, app, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
+        """
+
+        :param context: 请求上下文
+        :param state: 全局上下文
+        :return:
+        """
         pass

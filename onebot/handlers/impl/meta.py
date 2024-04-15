@@ -3,8 +3,9 @@ from onebot.handlers.interfaces import EventHandler
 
 class MetaEventEventHandler(EventHandler):
 
-    async def support(self, app, message: dict, context: dict) -> bool:
-        return message.get('post_type') == 'meta_event'
+    async def support(self, context: dict, state: dict) -> bool:
+        return context['request'].get('post_type') == 'meta_event'
 
-    async def handler(self, app, message: dict, context: dict):
-        app.robot_id = message['self_id']
+    async def handler(self, context: dict, state: dict):
+        app = state['app']
+        app.robot_id = context['request']['self_id']

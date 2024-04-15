@@ -5,7 +5,6 @@ from typing import List
 from .impl.request import RequestEventHandler
 from .interfaces import EventHandler
 from .impl.echo import EchoEventHandler
-from .impl.meta import MetaEventEventHandler
 from .impl.message import MessageEventHandler
 
 
@@ -16,13 +15,13 @@ class EventComposite(EventHandler):
     def __init__(self):
         self._handlers: List[EventHandler] = []
 
-    async def support(self, app, message: dict, context: dict):
+    async def support(self, context: dict, state: dict):
         pass
 
-    async def handler(self, app, message: dict, context: dict):
+    async def handler(self, context: dict, state: dict):
         for handler in self._handlers:
-            if await handler.support(app, message, context):
-                await handler.handler(app, message, context)
+            if await handler.support(context, state):
+                await handler.handler(context, state)
                 return
 
     def add_handler(self, handler: EventHandler):

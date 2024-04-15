@@ -4,10 +4,11 @@ from onebot.handlers.interfaces import EventHandler
 
 class RequestEventHandler(EventHandler):
 
-    async def support(self, app, message: dict, context: dict) -> bool:
-        return message.get('post_type') == 'request'
+    async def support(self, context: dict, state: dict) -> bool:
+        return context['request'].get('post_type') == 'request'
 
-    async def handler(self, app, message: dict, context: dict):
+    async def handler(self, context: dict, state: dict):
+        message = context['request']
         request_type = message.get('request_type')
         if request_type == 'friend':
             logger.info(
@@ -28,4 +29,5 @@ class RequestEventHandler(EventHandler):
                     '邀请入群 - 群号: {}',
                     message['group_id']
                 )
+        app = state['app']
         await app.handler_manager.message_handler(app, message, context)

@@ -26,36 +26,37 @@ class Resolver(ABC):
         pass
 
     @abstractmethod
-    async def support_resolver(self, parameter: Parameter, message: dict, context: dict) -> bool:
+    async def support_resolver(self, parameter: Parameter, context: dict, state: dict) -> bool:
         """
         判断当前请求的参数是否支持解析
 
         :param parameter: 参数，inspect.Parameter 对象
-        :param message: 消息，字典类型，表示当前处理的消息数据
         :param context: 上下文，字典类型，表示当前请求的上下文信息
+        :param state: 全局上下文
         :return: bool，如果当前请求的参数支持解析，则返回 True；否则返回 False
         """
         pass
 
     @abstractmethod
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
         """
         参数解析方法
 
         :param parameter: 参数，inspect.Parameter 对象
-        :param app: 主程序，通常是应用程序或框架的实例
-        :param message: 消息，字典类型，表示当前处理的消息数据
         :param context: 上下文，字典类型，表示当前请求的上下文信息
+        :param state: 全局上下文
+
         :return: 解析后的参数值，类型依赖于参数解析的具体实现
         """
         pass
 
-    async def close(self, parameter, context: dict):
+    async def close(self, parameter, context: dict, global_context: dict):
         """
         单次请求结束后调用的函数
 
         :param parameter: 参数，inspect.Parameter 对象
         :param context: 上下文，字典类型，表示当前请求的上下文信息
+        :param global_context: 全局上下文
         :return: 无返回值
         """
         pass

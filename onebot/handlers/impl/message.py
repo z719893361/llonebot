@@ -23,7 +23,7 @@ class AtProcessor(MessageProcessor):
         if type_ not in context:
             context[type_] = set()
         context[type_].add(data['qq'])
-        context['message'].append(At.model_validate(data))
+        context['message_chain'].append(At.model_validate(data))
 
 
 class TextProcessor(MessageProcessor):
@@ -33,7 +33,7 @@ class TextProcessor(MessageProcessor):
         if type_ not in context:
             context[type_] = list()
         context[type_].append(data['text'])
-        context['message'].append(Text.model_validate(data))
+        context['message_chain'].append(Text.model_validate(data))
 
 
 class JsonProcessor(MessageProcessor):
@@ -41,7 +41,7 @@ class JsonProcessor(MessageProcessor):
 
     def process(self, type_: str, data: dict, context: dict) -> None:
         context['json'] = data['data']
-        context['message'].append(Json.model_validate(data))
+        context['message_chain'].append(Json.model_validate(data))
 
 
 class ImageProcessor(MessageProcessor):
@@ -52,7 +52,7 @@ class ImageProcessor(MessageProcessor):
             context[type_] = list()
         model = Image.model_validate(data)
         context[type_].append(model)
-        context['message'].append(model)
+        context['message_chain'].append(model)
 
 
 class FaceProcessor(MessageProcessor):
@@ -62,7 +62,7 @@ class FaceProcessor(MessageProcessor):
         if type_ not in context:
             context[type_] = list()
         context[type_].append(data['id'])
-        context['message'].append(Face.model_validate(data))
+        context['message_chain'].append(Face.model_validate(data))
 
 
 class RecordProcessor(MessageProcessor):
@@ -71,7 +71,7 @@ class RecordProcessor(MessageProcessor):
     def process(self, type_: str, data: dict, context: dict) -> None:
         model = Record.model_validate(data)
         context[type_] = model
-        context['message'].append(model)
+        context['message_chain'].append(model)
 
 
 class VideoProcessor(MessageProcessor):
@@ -80,7 +80,7 @@ class VideoProcessor(MessageProcessor):
     def process(self, type_: str, data: dict, context: dict) -> None:
         model = Video.model_validate(data)
         context['video'] = model
-        context['message'].append(model)
+        context['message_chain'].append(model)
 
 
 class FileProcessor(MessageProcessor):
@@ -89,7 +89,7 @@ class FileProcessor(MessageProcessor):
     def process(self, type_: str, data: dict, context: dict) -> None:
         model = File.model_validate(data)
         context['file'] = model
-        context['message'].append(model)
+        context['message_chain'].append(model)
 
 
 class ReplyProcessor(MessageProcessor):
@@ -97,7 +97,7 @@ class ReplyProcessor(MessageProcessor):
 
     def process(self, type_: str, data: dict, context: dict) -> None:
         context['reply'] = data['id']
-        context['message'].append(Reply.model_validate(data))
+        context['message_chain'].append(Reply.model_validate(data))
 
 
 class MessageProcessing:
@@ -109,7 +109,7 @@ class MessageProcessing:
                 self.strategies[processor.type] = processor()
 
     def process(self, messages: list, context: dict) -> dict:
-        context['message'] = []
+        context['message_chain'] = []
         for message in messages:
             message_type = message['type']
             if message_type not in self.strategies:
@@ -138,10 +138,11 @@ message_process_factory = MessageProcessing([
 
 class MessageEventHandler(EventHandler):
 
-    async def support(self, app, message: dict, context: dict) -> bool:
-        return message.get('post_type') == 'message'
+    async def support(self, context: dict, g_context: dict) -> bool:
+        return context['request'].get('post_type') == 'message'
 
-    async def handler(self, app, message: dict, context: dict):
+    async def handler(self, context: dict, g_context: dict):
+        message = context['request']
         if 'group_id' in message:
             logger.info(
                 "收到消息 - 群号: {} 用户: {} 消息内容: {}",
@@ -155,6 +156,6 @@ class MessageEventHandler(EventHandler):
                 message['user_id'],
                 message['raw_message']
             )
-        context = {}
         message_process_factory.process(message['message'], context)
-        await app.handler_manager.message_handler(app, message, context)
+        app = g_context.get('app')
+        await app.handler_manager.message_handler(context, g_context)

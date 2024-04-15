@@ -46,6 +46,10 @@ class OneBot:
         self.loop = asyncio.get_event_loop()
         # 定时任务上下文
         self._cron_context = {}
+        # 全局上下文
+        self._global_context = {
+            'app': self
+        }
 
     def listener(
             self,
@@ -121,7 +125,8 @@ class OneBot:
             try:
                 data = await self._websocket.recv()
                 logger.debug(data)
-                self.loop.create_task(event_dispatcher.handler(self, json.loads(data), {}))
+                context = {'request': json.loads(data)}
+                self.loop.create_task(event_dispatcher.handler(context, self._global_context))
             except (ConnectionClosedError, ConnectionClosedOK):
                 await self._connecting()
 
