@@ -7,6 +7,4 @@ class FriendMessage(Filter):
     """
     async def support(self, context: dict, state: dict) -> bool:
         message = context['request']
-        print(message)
-        print('group_id' not in message and 'user_id' in message)
         return 'group_id' not in message and 'user_id' in message

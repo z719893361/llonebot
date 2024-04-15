@@ -86,20 +86,20 @@ class ResolverComposite(Resolver):
         else:
             return await self.loop.run_in_executor(None, resolver, parameter, context, state)
 
-    async def close(self, parameter, context: dict, global_context: dict):
+    async def close(self, parameter, context: dict, state: dict):
         """
         关闭函数
         :param parameter: 参数
         :param context: 上下文
-        :param global_context: 全局上下文
+        :param state: 全局上下文
         """
         close = self.get_parameter_resolve(parameter).close
         if close not in self.func_async_status:
             self.func_async_status[close] = iscoroutinefunction(close)
         if self.func_async_status[close]:
-            return await close(parameter, context, global_context)
+            return await close(parameter, context, state)
         else:
-            return await self.loop.run_in_executor(None, close, parameter, context, global_context)
+            return await self.loop.run_in_executor(None, close, parameter, context, state)
 
     def add_resolve(self, resolver: Resolver):
         """

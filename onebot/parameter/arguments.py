@@ -17,11 +17,11 @@ class GetAPP(Depend):
     获取主程序
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return True
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> OneBot:
-        return app
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> OneBot:
+        return state['app']
 
 
 class GetMessageID(Depend):
@@ -29,11 +29,11 @@ class GetMessageID(Depend):
     从消息中取JSON
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
-        return 'message_id' in message
+    async def support(self, context: dict, state: dict) -> bool:
+        return 'message_id' in context['request']
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[int]:
-        return message.get('message_id')
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Optional[int]:
+        return context['request'].get('message_id')
 
 
 class GetGroupID(Depend):
@@ -44,13 +44,13 @@ class GetGroupID(Depend):
     def __init__(self, allow_none: bool = False):
         self.allow_none = allow_none
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         if self.allow_none:
             return True
-        return 'group_id' in message
+        return 'group_id' in context['request']
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[int]:
-        return message.get('group_id')
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Optional[int]:
+        return context['request'].get('group_id')
 
 
 class GetUserID(Depend):
@@ -58,11 +58,11 @@ class GetUserID(Depend):
     获取发送用户QQ
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
-        return 'user_id' in message
+    async def support(self, context: dict, state: dict) -> bool:
+        return 'user_id' in context['request']
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[int]:
-        return message.get('user_id')
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Optional[int]:
+        return context['request'].get('user_id')
 
 
 class GetRobotID(Depend):
@@ -70,11 +70,11 @@ class GetRobotID(Depend):
     获取发送用户QQ
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
-        return 'self_id' in message
+    async def support(self, context: dict, state: dict) -> bool:
+        return 'self_id' in context['request']
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[int]:
-        return message.get('self_id')
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Optional[int]:
+        return context['request'].get('self_id')
 
 
 class GetSender(Depend):
@@ -82,13 +82,13 @@ class GetSender(Depend):
     获取发送人信息
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
-        return 'sender' in message
+    async def support(self, context: dict, state: dict) -> bool:
+        return 'sender' in context['request']
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[Sender]:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Optional[Sender]:
         if 'sender' in context:
             return context['sender']
-        context['sender'] = Sender.model_validate(message['sender'])
+        context['sender'] = Sender.model_validate(context['request']['sender'])
         return context['sender']
 
 
@@ -97,10 +97,10 @@ class GetQuote(Depend):
     获取消息引用ID
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
-        return 'reply' in message
+    async def support(self, context: dict, state: dict) -> bool:
+        return 'reply' in context['request']
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
         return context.get('reply')
 
 
@@ -109,10 +109,10 @@ class GetMessageChain(Depend):
     获取模型解析后的消息
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return 'message' in context
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> list:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> list:
         return context.get('message')
 
 
@@ -121,11 +121,11 @@ class GetRawMessageChain(Depend):
     获取Json格式原始消息
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
-        return 'raw_message' in message
+    async def support(self, context: dict, state: dict) -> bool:
+        return 'raw_message' in context['request']
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> str:
-        return message.get('raw_message')
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> str:
+        return context['request'].get('raw_message')
 
 
 class GetMessage(Depend):
@@ -133,11 +133,11 @@ class GetMessage(Depend):
     获取原始报文
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return True
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> dict:
-        return message
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> dict:
+        return context['request']
 
 
 class GetAt(Depend):
@@ -145,10 +145,10 @@ class GetAt(Depend):
     获取at
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return 'at' in context
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Set[str]:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Set[str]:
         return context.get('at')
 
 
@@ -161,10 +161,10 @@ class GetText(Depend):
         self.concat = concat
         self.delimiter = delimiter
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return 'text' in context
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Union[List[str], str, None]:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Union[List[str], str, None]:
         if 'text' not in context:
             return
         if self.concat:
@@ -181,10 +181,10 @@ class GetJSON(Depend):
     def __init__(self, text=False):
         self.text = text
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return 'json' in context
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[dict]:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Optional[dict]:
         if self.text:
             return context.get('json')
         else:
@@ -196,10 +196,10 @@ class GetImage(Depend):
     获取图片
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return 'image' in context
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[List[Image]]:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Optional[List[Image]]:
         return context.get('image')
 
 
@@ -208,10 +208,10 @@ class GetFace(Depend):
     获取表情
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return 'face' in context
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> List[int]:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> List[int]:
         return context.get('face')
 
 
@@ -220,10 +220,10 @@ class GetRecord(Depend):
     获取语音
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return 'record' in context
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Record:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Record:
         return context.get('record')
 
 
@@ -232,10 +232,10 @@ class GetFile(Depend):
     获取文件
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return 'file' in context
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> File:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> File:
         return context.get('file')
 
 
@@ -244,11 +244,11 @@ class GetFriendAddRequest(Depend):
     好友请求
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
-        return message.get('request_type') == 'friend'
+    async def support(self, context: dict, state: dict) -> bool:
+        return context['request'].get('request_type') == 'friend'
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> FriendAddRequest:
-        return FriendAddRequest.model_validate(message)
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> FriendAddRequest:
+        return FriendAddRequest.model_validate(context['request'])
 
 
 class GetGroupInviteRequest(Depend):
@@ -256,15 +256,15 @@ class GetGroupInviteRequest(Depend):
     邀请进群
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return (
-                message.get('post_type') == 'request' and
-                message.get('request_type') == 'group' and
-                message.get('sub_type') == 'invite'
+                context['request'].get('post_type') == 'request' and
+                context['request'].get('request_type') == 'group' and
+                context['request'].get('sub_type') == 'invite'
         )
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> GroupInviteRequest:
-        return GroupInviteRequest.model_validate(message)
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> GroupInviteRequest:
+        return GroupInviteRequest.model_validate(context['request'])
 
 
 class GetContext(Depend):
@@ -272,10 +272,10 @@ class GetContext(Depend):
     邀请进群
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return True
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> dict:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> dict:
         return context
 
 
@@ -284,10 +284,10 @@ class GetEnv(Depend):
     获取环境变量
     """
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         pass
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
         pass
 
 
@@ -317,10 +317,10 @@ class Depends(Depend):
         # 生成器哈希标识
         self.generator_hash = hash((self.fn, self.args, items_tuple, 'generator'))
 
-    async def support(self, message: dict, context: dict) -> bool:
+    async def support(self, context: dict, state: dict) -> bool:
         return True
 
-    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
+    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
         if self.use_cache and self.cache_hash in context:
             return context[self.cache_hash]
         if self.is_generator_fn:
@@ -339,7 +339,7 @@ class Depends(Depend):
             context[self.cache_hash] = result
         return result
 
-    async def close(self, parameter: Parameter, context: dict):
+    async def close(self, parameter: Parameter, context: dict, state: dict):
         if self.generator_hash not in context:
             return
         generator = context[self.generator_hash]

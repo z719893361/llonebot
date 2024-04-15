@@ -46,12 +46,12 @@ class HandlerManager:
 
         self.event: Dict[str, List[Callable]] = {}
 
-    async def message_handler(self, context: dict, global_context: dict) -> None:
+    async def message_handler(self, context: dict, state: dict) -> None:
         """
         调用支持处理器
 
         :param context: 请求上下文
-        :param global_context: 全局上下文
+        :param state: 全局上下文
         :return:
         """
         # 消息处理后关闭列表
@@ -63,20 +63,20 @@ class HandlerManager:
                     if f not in self.method_async_state:
                         self.method_async_state[f.support] = iscoroutinefunction(f.support)
                     if self.method_async_state[f.support]:
-                        if not await f.support(context, global_context):
+                        if not await f.support(context, state):
                             is_continue = True
                             break
                     else:
-                        if not await self.loop.run_in_executor(None, f.support, context, global_context):
+                        if not await self.loop.run_in_executor(None, f.support, context, state):
                             is_continue = True
                             break
                 if is_continue:
                     continue
                 param_value = []
                 for param in self.method_parameters[handler.func]:
-                    if not await parameter_resolver.support_resolver(param, context, global_context):
+                    if not await parameter_resolver.support_resolver(param, context, state):
                         break
-                    param_value.append(await parameter_resolver.resolver(param, context, global_context))
+                    param_value.append(await parameter_resolver.resolver(param, context, state))
                     param_close.append(param)
                 else:
                     if self.method_async_state[handler.func]:
@@ -87,7 +87,7 @@ class HandlerManager:
                         return
         except Exception as e:
             for param in param_close:
-                await parameter_resolver.close(param, context, global_context)
+                await parameter_resolver.close(param, context, state)
             logger.exception(e)
 
     def register_message_handler(
