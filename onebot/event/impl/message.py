@@ -5,7 +5,7 @@ from typing import Type
 from loguru import logger
 
 from onebot.dtypes.models import *
-from onebot.handlers.interfaces import EventHandler
+from onebot.events.interfaces import EventHandler
 
 
 class MessageProcessor(ABC):

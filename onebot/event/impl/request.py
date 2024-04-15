@@ -1,5 +1,5 @@
 from loguru import logger
-from onebot.handlers.interfaces import EventHandler
+from onebot.events.interfaces import EventHandler
 
 
 class RequestEventHandler(EventHandler):
@@ -30,4 +30,4 @@ class RequestEventHandler(EventHandler):
                     message['group_id']
                 )
         app = state['app']
-        await app.handler_manager.message_handler(app, message, context)
+        await app.event_manager.message_handler(app, message, context)

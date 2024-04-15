@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from onebot.handlers.interfaces import EventHandler
+from onebot.events.interfaces import EventHandler
 
 
 class EchoEventHandler(EventHandler):
