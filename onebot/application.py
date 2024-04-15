@@ -37,7 +37,7 @@ class OneBot:
         # Websocket连接状态
         self.connect_state = False
         # 机器人ID
-        self.robot_id: int = ...
+        self.robot_id: int = 0
         # 消息处理器
         self.task_manager = HandlerManager()
         # 消息响应
@@ -465,13 +465,14 @@ class OneBot:
         :param enable:      开启 or 关闭
         :return:
         """
-        await self._send_message({
+        response = await self._send_message({
             'action': 'set_group_whole_ban',
             'params': {
                 'group_id': group_id,
                 'enable': enable
             }
         })
+        return response.get('status') == 'ok'
 
     async def set_group_admin(self, group_id: int, user_id: int, enable: bool) -> bool:
         """
