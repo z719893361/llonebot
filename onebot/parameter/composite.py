@@ -1,5 +1,5 @@
 import asyncio
-from inspect import Parameter, iscoroutinefunction, getfile, signature
+from inspect import Parameter, iscoroutinefunction, signature
 from typing import List, Dict, Set, Any, Callable
 
 from .interfaces import Resolver
@@ -26,6 +26,11 @@ class ResolverComposite(Resolver):
         self.loop = asyncio.get_event_loop()
 
     def get_parameter_resolve(self, parameter):
+        """
+        获取参数解析器
+        :param parameter: 参数
+        :return: 参数解析器
+        """
         if parameter in self.unresolvable_param:
             return
         if parameter in self.argument_resolve_cache:
@@ -47,7 +52,7 @@ class ResolverComposite(Resolver):
     def support_function(self, fn: Callable):
         """
         检查函数参数是否支持解析
-        :param fn:  函数
+        :param fn: 函数
         :return:
         """
         arguments = signature(fn).parameters.values()
@@ -59,9 +64,9 @@ class ResolverComposite(Resolver):
     async def support_resolver(self, parameter: Parameter, message: dict, context: dict) -> bool:
         """
         该参数是否支持解析
-        :param parameter:
-        :param message:
-        :param context:
+        :param parameter: 参数
+        :param message: 消息
+        :param context: 上下文
         :return:
         """
         support_resolver = self.get_parameter_resolve(parameter).support_resolver
@@ -84,6 +89,8 @@ class ResolverComposite(Resolver):
     async def close(self, parameter, context: dict):
         """
         关闭函数
+        :param parameter: 参数
+        :param context: 上下文
         """
         close = self.get_parameter_resolve(parameter).close
         if close not in self.func_async_status:
@@ -96,7 +103,7 @@ class ResolverComposite(Resolver):
     def add_resolve(self, resolver: Resolver):
         """
         添加参数解决器
-        :param resolver:  解决器
+        :param resolver: 解决器
         """
         self.argument_resolves.append(resolver)
 
