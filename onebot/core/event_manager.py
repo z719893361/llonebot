@@ -30,7 +30,7 @@ class Config:
     skipnull: bool
 
 
-class HandlerManager:
+class EventManager:
     """
     事件管理器
     """
@@ -48,7 +48,7 @@ class HandlerManager:
 
     async def message_handler(self, context: dict, state: dict) -> None:
         """
-        调用支持处理器
+        消息处理
 
         :param context: 请求上下文
         :param state: 全局上下文
