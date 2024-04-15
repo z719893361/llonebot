@@ -143,9 +143,18 @@ class MessageEventHandler(EventHandler):
 
     async def handler(self, app, message: dict, context: dict):
         if 'group_id' in message:
-            logger.info("群号: {} 用户: {} 消息内容: {}", message['group_id'], message['user_id'], message['raw_message'])
+            logger.info(
+                "收到消息 - 群号: {} 用户: {} 消息内容: {}",
+                message['group_id'],
+                message['user_id'],
+                message['raw_message']
+            )
         else:
-            logger.info("用户: {} 消息内容: {}", message['user_id'], message['raw_message'])
+            logger.info(
+                "收到消息 - 用户: {} 消息内容: {}",
+                message['user_id'],
+                message['raw_message']
+            )
         context = {}
         message_process_factory.process(message['message'], context)
-        await app.task_manager.message_handler(app, message, context)
+        await app.handler_manager.message_handler(app, message, context)
