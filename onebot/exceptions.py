@@ -41,8 +41,22 @@ class ParameterError(Exception):
 
 
 class AuthenticationError(Exception):
-    """Token认证失败异常"""
+    """
+    用于认证过程中出现的错误的异常。
+
+    属性:
+        message (str): 错误的解释，默认为"Token认证失败"。
+
+    方法:
+        __init__: 构造AuthenticationError对象所需的所有属性。
+    """
 
     def __init__(self, message="Token认证失败"):
+        """
+        使用可选的自定义消息初始化AuthenticationError。
+
+        参数:
+            message (str): 描述认证失败的自定义错误消息，默认为"Token认证失败"。
+        """
         self.message = message
         super().__init__(self.message)
