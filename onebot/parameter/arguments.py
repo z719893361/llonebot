@@ -41,14 +41,19 @@ class GetGroupID(Depend):
     获取群组ID
     """
 
+    def __init__(self, allow_none: bool = False):
+        self.allow_none = allow_none
+
     async def support(self, message: dict, context: dict) -> bool:
+        if self.allow_none:
+            return True
         return 'group_id' in message
 
     async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Optional[int]:
         return message.get('group_id')
 
 
-class GetSendUserID(Depend):
+class GetUserID(Depend):
     """
     获取发送用户QQ
     """
@@ -172,6 +177,7 @@ class GetJSON(Depend):
     """
     获取JSON
     """
+
     def __init__(self, text=False):
         self.text = text
 
@@ -271,6 +277,18 @@ class GetContext(Depend):
 
     async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> dict:
         return context
+
+
+class GetEnv(Depend):
+    """
+    获取环境变量
+    """
+
+    async def support(self, message: dict, context: dict) -> bool:
+        pass
+
+    async def resolver(self, parameter: Parameter, app, message: dict, context: dict) -> Any:
+        pass
 
 
 class Depends(Depend):
