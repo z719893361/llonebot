@@ -32,5 +32,4 @@ class EventComposite(EventHandler):
 event_dispatcher = EventComposite()
 event_dispatcher.add_handler(EchoEventHandler())
 event_dispatcher.add_handler(MessageEventHandler())
-event_dispatcher.add_handler(MetaEventEventHandler())
 event_dispatcher.add_handler(RequestEventHandler())
