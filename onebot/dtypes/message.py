@@ -6,10 +6,17 @@ from onebot.exceptions import BuildMessageError
 class MessageBuilder:
     def __init__(self):
         self._message = deque()
+        self._cqs = deque()
         self._exists = set()
 
-    def to_list(self) -> list[dict]:
-        return list(self._message)
+    def __iter__(self):
+        return iter(self._message)
+
+    def __str__(self):
+        return ''.join(self._cqs)
+
+    def __list(self):
+        return self._message
 
     def video(self, file: str):
         if len(self._message) > 0:
@@ -20,6 +27,7 @@ class MessageBuilder:
                 'file': file
             }
         })
+        self._cqs.append(f'[type=video,file={file}]')
         return self
 
     def record(self, file: str):
@@ -31,6 +39,7 @@ class MessageBuilder:
                 'file': file
             }
         })
+        self._cqs.append(f'[type=record,file={file}]')
         return self
 
     def json(self, data: str):
@@ -42,6 +51,7 @@ class MessageBuilder:
                 'file': data
             }
         })
+        self._cqs.append(f'[type=json,file={data}]')
         return self
 
     def file(self, file: str):
@@ -53,6 +63,7 @@ class MessageBuilder:
                 'file': file
             }
         })
+        self._cqs.append(f'[type=file,file={file}]')
         return self
 
     def text(self, text):
@@ -62,6 +73,7 @@ class MessageBuilder:
                 'text': text
             }
         })
+        self._cqs.append(text)
         return self
 
     def image(self, file: str):
@@ -71,6 +83,7 @@ class MessageBuilder:
                 'file': file
             }
         })
+        self._cqs.append(f'[type=image,file={file}]')
         return self
 
     def face(self, face_id: int):
@@ -80,6 +93,7 @@ class MessageBuilder:
                 'id': str(face_id)
             }
         })
+        self._cqs.append(f'[type=face,id={face_id}]')
         return self
 
     def reply(self, message_id: int):
@@ -91,6 +105,7 @@ class MessageBuilder:
                 'id': message_id
             }
         })
+        self._cqs.appendleft(f'[type=reply,id={message_id}]')
         self._exists.add('reply')
         return self
 
@@ -101,4 +116,5 @@ class MessageBuilder:
                 'qq': qq
             }
         })
+        self._cqs.append(f'[type=at,qq={qq}]')
         return self
