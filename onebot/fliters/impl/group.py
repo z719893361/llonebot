@@ -4,7 +4,7 @@ from typing import Set, List, Union
 from onebot.fliters.interfaces import Filter
 
 
-class Group(Filter):
+class GroupMessage(Filter):
     """
     是否为群组消息
     """
