@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import List, Optional, Literal
-
-from onebot.dtypes.enum import Gender, GroupRole
+from collections import deque
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
+
+from onebot.exceptionals import BuildMessageError
+from onebot.types.enum import Gender, GroupRole
 
 
 class Text(BaseModel):
@@ -30,15 +32,9 @@ class Image(BaseModel):
     # 图片文件名
     file: str
     # 图片 URL
-    url: Optional[str] = None
-    # 缓存
-    cache: Optional[Literal[0, 1]] = 1
-    # 只在通过网络 URL 发送时有效，表示是否通过代理下载文件 需通过环境变量或配置文件配置代理
-    proxy: Optional[Literal[0, 1]] = 1
-    # 超时
-    timeout: Optional[float] = None
+    url: Optional[str]
     # 图片大小
-    file_size: int = None
+    file_size: int
 
 
 class Record(BaseModel):
@@ -258,3 +254,120 @@ class Version(BaseModel):
     app_name: str
     protocol_version: str
     app_version: str
+
+
+class MessageBuilder:
+    def __init__(self):
+        self._message = deque()
+        self._cqs = deque()
+        self._exists = set()
+
+    def __iter__(self):
+        return iter(self._message)
+
+    def __str__(self):
+        return ''.join(self._cqs)
+
+    def __list(self):
+        return self._message
+
+    def video(self, file: str):
+        if len(self._message) > 0:
+            raise BuildMessageError('视频为独立消息，不能和其他消息一同发送')
+        self._message.append({
+            'type': 'video',
+            'data': {
+                'file': file
+            }
+        })
+        self._cqs.append(f'[type=video,file={file}]')
+        return self
+
+    def record(self, file: str):
+        if len(self._message) > 0:
+            raise BuildMessageError('语音是独立消息，不能和其他消息一同发送')
+        self._message.append({
+            'type': 'record',
+            'data': {
+                'file': file
+            }
+        })
+        self._cqs.append(f'[type=record,file={file}]')
+        return self
+
+    def json(self, data: str):
+        if len(self._message) > 0:
+            raise BuildMessageError('JSON是独立消息，不能和其他消息一同发送')
+        self._message.append({
+            'type': 'json',
+            'data': {
+                'file': data
+            }
+        })
+        self._cqs.append(f'[type=json,file={data}]')
+        return self
+
+    def file(self, file: str):
+        if len(self._message) > 0:
+            raise BuildMessageError('文件是独立消息，不能和其他消息一同发送')
+        self._message.append({
+            'type': 'file',
+            'data': {
+                'file': file
+            }
+        })
+        self._cqs.append(f'[type=file,file={file}]')
+        return self
+
+    def text(self, text):
+        self._message.append({
+            'type': 'text',
+            'data': {
+                'text': text
+            }
+        })
+        self._cqs.append(text)
+        return self
+
+    def image(self, file: str):
+        self._message.append({
+            'type': 'image',
+            'data': {
+                'file': file
+            }
+        })
+        self._cqs.append(f'[type=image,file={file}]')
+        return self
+
+    def face(self, face_id: int):
+        self._message.append({
+            'type': 'face',
+            'data': {
+                'id': str(face_id)
+            }
+        })
+        self._cqs.append(f'[type=face,id={face_id}]')
+        return self
+
+    def reply(self, message_id: int):
+        if 'reply' in self._exists:
+            raise BuildMessageError('仅可以设置一条消息回复')
+        self._message.appendleft({
+            'type': 'reply',
+            'data': {
+                'id': message_id
+            }
+        })
+        self._cqs.appendleft(f'[type=reply,id={message_id}]')
+        self._exists.add('reply')
+        return self
+
+    def at(self, qq: int):
+        self._message.append({
+            'type': 'at',
+            'data': {
+                'qq': qq
+            }
+        })
+        self._cqs.append(f'[type=at,qq={qq}]')
+        return self

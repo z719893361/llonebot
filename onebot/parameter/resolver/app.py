@@ -5,16 +5,12 @@ from onebot.parameter.interfaces import Resolver
 
 
 class AppResolver(Resolver):
-    """
-    主程序参数注入
-    """
-
     def support_parameter(self, parameter: Parameter) -> bool:
-        from onebot.application import OneBot
-        return parameter.annotation is OneBot
+        from onebot import OneBot
+        return parameter.annotation == OneBot
 
-    async def support_resolver(self, parameter: Parameter, context: dict, state: dict) -> bool:
-        return True
+    async def support(self, parameter: Parameter, scope: dict) -> bool:
+        return 'app' in scope
 
-    async def resolver(self, parameter: Parameter, context: dict, state: dict) -> Any:
-        return state['app']
+    async def resolve(self, parameter: Parameter, scope: dict) -> Any:
+        return scope.get('app')

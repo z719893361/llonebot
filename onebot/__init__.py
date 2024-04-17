@@ -1,2 +1,1 @@
-from .application import OneBot
-from .dtypes.message import MessageBuilder
+from onebot.application import OneBot
