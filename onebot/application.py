@@ -12,7 +12,7 @@ from websockets.exceptions import ConnectionClosed, ConnectionClosedOK, Connecti
 from onebot.dispatcher import dispatcher
 from onebot.exceptionals import AuthenticationError, SendMessageError
 from onebot.filter.interfaces import Filter
-from onebot.router import Router
+from onebot.routing import Router
 from onebot.types import MessageBuilder, Login, Message, Friend, Group, GroupUser, Version
 
 
@@ -33,6 +33,15 @@ class OneBot:
         def decorator(func):
             self.router.register(func, filters)
 
+        return decorator
+
+    def on_event(self, event_type: str):
+        return self.router.on_event(event_type)
+
+    def crontab(self, spec: str):
+        def decorator(func):
+            self.router.crontab(func, spec, {'app': self, 'context': {}})
+            return func
         return decorator
 
     async def _connect(self):
@@ -81,8 +90,10 @@ class OneBot:
         try:
             self.loop.run_until_complete(self._connect())
             self.loop.create_task(self._recv())
+            self.loop.create_task(self.router.startup({'app': self}))
             self.loop.run_forever()
         except KeyboardInterrupt:
+            self.loop.run_until_complete(self.router.shutdown({'app': self}))
             self.loop.run_until_complete(self._close())
 
     def set_response(self, echo: str, response: dict):
