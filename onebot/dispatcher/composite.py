@@ -1,5 +1,6 @@
 from typing import List
 
+from onebot.dispatcher.impl.echo import EchoEventHandler
 from onebot.dispatcher.impl.message import MessageEventHandler
 from onebot.dispatcher.impl.request import RequestEvent
 from onebot.dispatcher.interfaces import EventDispatcher
@@ -28,4 +29,5 @@ class EventComposite:
 
 dispatcher = EventComposite()
 dispatcher.add_handler(MessageEventHandler())
+dispatcher.add_handler(EchoEventHandler())
 dispatcher.add_handler(RequestEvent())

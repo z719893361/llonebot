@@ -55,16 +55,16 @@ class Router:
         self.routes.append(route)
 
     async def __call__(self, scope: dict):
-        start = time.time()
         after_close: List[Parameter] = []
         for route in self.routes:
-            if await route.matches(scope):
-                await route.handle(scope, after_close)
-
+            try:
+                if await route.matches(scope):
+                    await route.handle(scope, after_close)
+            except Exception as e:
+                logger.exception(e)
+        # 生命周期结束
         for param in after_close:
             try:
                 await parameters.close(param, scope)
             except Exception as e:
                 logger.exception(e)
-        end = time.time()
-        print('耗时', end - start)
