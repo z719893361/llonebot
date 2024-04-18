@@ -1,13 +1,14 @@
 import asyncio
-from collections import deque
-from typing import Callable, List, Annotated
-from inspect import iscoroutinefunction, signature, Parameter
+import time
+from typing import Callable, List, Tuple
+from inspect import iscoroutinefunction, Parameter
 
 import aiocron
 from loguru import logger
 
 from onebot.filter.interfaces import Filter
-from onebot.parameter.composite import parameters
+from onebot.parameter import Resolver
+from onebot.parameter.composite import PARAMETER_RESOLVER
 
 
 class Route:
@@ -15,7 +16,7 @@ class Route:
         self.func = func
         self.filters = [] if filters is None else filters
         self.is_async = iscoroutinefunction(func)
-        self.parameters = parameters.support_function(func)
+        self.resolvers = PARAMETER_RESOLVER.get_function_resolvers(func)
 
     async def matches(self, scope: dict):
         for f in self.filters:
@@ -23,32 +24,32 @@ class Route:
                 return False
         return True
 
-    async def handle(self, scope: dict, after_close: List[Parameter]):
-        param_values = deque()
-        for param in self.parameters:
-            if await parameters.support(param, scope):
-                param_values.append(await parameters.resolve(param, scope))
-            else:
+    async def handle(self, scope: dict, param_close: List[Tuple[Parameter, Resolver]]):
+        param_value = []
+        for param, resolver in self.resolvers:
+            if not await resolver.support(param, scope):
                 return
-            after_close.append(param)
-        if self.is_async:
-            await self.func(*param_values)
+            param_value.append(await resolver.resolve(param, scope))
+            param_close.append((param, resolver))
         else:
-            await asyncio.to_thread(self.func, *param_values)
+            if self.is_async:
+                await self.func(*param_value)
+            else:
+                await asyncio.to_thread(self.func, *param_value)
 
 
 class Event:
     def __init__(self, func: Callable, event_type: str):
         self.func: Callable = func
         self.event_type: str = event_type
-        self.parameters = parameters.support_function(func)
+        self.parameters = PARAMETER_RESOLVER.get_parameter_resolver(func)
         self.is_async = iscoroutinefunction(func)
 
     async def __call__(self, scope: dict, after_close: List[Parameter]):
-        param_values = deque()
+        param_values = []
         for param in self.parameters:
-            if await parameters.support(param, scope):
-                param_values.append(await parameters.resolve(param, scope))
+            if await PARAMETER_RESOLVER.support(param, scope):
+                param_values.append(await PARAMETER_RESOLVER.resolve(param, scope))
                 after_close.append(param)
             else:
                 param_values.append(None)
@@ -72,24 +73,20 @@ class Router:
         self.routes.append(route)
 
     async def __call__(self, scope: dict):
-        after_close: List[Parameter] = []
+        param_close = []
         for route in self.routes:
             try:
                 if await route.matches(scope):
-                    await route.handle(scope, after_close)
+                    await route.handle(scope, param_close)
             except Exception as e:
                 logger.exception(e)
-        # 生命周期结束
-        for param in after_close:
+        for param, resolver in param_close:
             try:
-                await parameters.close(param, scope)
+                await resolver.close(param, scope)
             except Exception as e:
                 logger.exception(e)
 
-    def on_event(
-            self,
-            event_type: str
-    ):
+    def on_event(self, event_type: str):
         def decorator(func: Callable) -> Callable:
             self.add_event_handler(event_type, func)
             return func
@@ -106,15 +103,15 @@ class Router:
 
     @staticmethod
     async def run_handlers(handlers: List[Callable], scope: dict):
-        after_close = []
+        param_close = []
         for handler in handlers:
             try:
-                await handler(scope, after_close)
+                await handler(scope, param_close)
             except Exception as e:
                 logger.exception(e)
-        for param in after_close:
+        for param, resolver in param_close:
             try:
-                await parameters.close(param, {})
+                await resolver.close(param, {})
             except Exception as e:
                 logger.exception(e)
 
@@ -127,23 +124,21 @@ class Router:
     @staticmethod
     def crontab(func: Callable, spec: str, scope: dict):
         async def crontab():
-            after_close = []
             param_value = []
-            for param in parameter:
-                param_value.append(await parameters.resolve(param, scope))
-                after_close.append(param)
+            for param, resolver in parameter_resolver:
+                param_value.append(await resolver.resolve(param, scope))
             else:
                 if method_async_state:
                     await func(*param_value)
                 else:
                     await asyncio.create_task(*param_value)
-            for param in after_close:
+            for param, resolver in parameter_resolver:
                 try:
-                    await parameters.close(param, scope)
+                    await resolver.close(param, scope)
                 except Exception as e:
                     logger.exception(e)
         # 预缓存参数列表
-        parameter = parameters.support_function(func)
+        parameter_resolver = PARAMETER_RESOLVER.get_function_resolvers(func)
         # 方法异步状态
         method_async_state = iscoroutinefunction(func)
         # 启动定时任务

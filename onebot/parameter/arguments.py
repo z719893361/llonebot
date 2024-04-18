@@ -25,7 +25,7 @@ class GetMessageID(Dependency):
     """
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
-        return 'message_id' in scope['request']
+        return 'request' in scope and 'message_id' in scope['request']
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Optional[int]:
         return scope['request'].get('message_id')
@@ -36,16 +36,16 @@ class GetGroupID(Dependency):
     获取群组ID
     """
 
-    def __init__(self, allow_none: bool = False):
-        self.allow_none = allow_none
+    def __init__(self, allow_null: bool = False):
+        self.allow_null = allow_null
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
-        if self.allow_none:
+        if self.allow_null:
             return True
-        return 'group_id' in scope['request']
+        return 'request' in scope and 'group_id' in scope['request']
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Optional[int]:
-        return scope['request'].get('group_id')
+        return scope.get('request', {}).get('group_id')
 
 
 class GetUserID(Dependency):
@@ -54,7 +54,7 @@ class GetUserID(Dependency):
     """
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
-        return 'user_id' in scope['request']
+        return 'request' in scope and 'user_id' in scope['request']
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Optional[int]:
         return scope['request'].get('user_id')
@@ -66,10 +66,10 @@ class GetRobotID(Dependency):
     """
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
-        return 'self_id' in scope['request']
+        return 'request' in scope and 'self_id' in scope['request']
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Optional[int]:
-        return scope['request'].get('self_id')
+        return scope['request']['self_id']
 
 
 class GetSender(Dependency):
@@ -78,7 +78,7 @@ class GetSender(Dependency):
     """
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
-        return 'sender' in scope['request']
+        return 'request' in scope and 'sender' in scope['request']
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Optional[Sender]:
         if 'sender' in scope:
@@ -93,7 +93,7 @@ class GetQuote(Dependency):
     """
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
-        return 'reply' in scope['request']
+        return 'request' in scope and 'reply' in scope['request']
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Any:
         return scope['context'].get('reply')
@@ -214,7 +214,7 @@ class GetFriendAddRequest(Dependency):
     """
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
-        return scope['request'].get('request_type') == 'friend'
+        return 'request' in scope and scope['request'].get('request_type') == 'friend'
 
     async def resolve(self, parameter: Parameter, scope: dict) -> FriendAddRequest:
         return FriendAddRequest.model_validate(scope['request'])
@@ -227,6 +227,7 @@ class GetGroupInviteRequest(Dependency):
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
         return (
+                'request' in scope and
                 scope['request'].get('post_type') == 'request' and
                 scope['request'].get('request_type') == 'group' and
                 scope['request'].get('sub_type') == 'invite'

@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name='llonebot',
-    version='1.0.3',
+    version='1.0.4',
     author='Gesoy',
     author_email='719893361@qq.com',
     description='NTQQ LLOneBot 插件交互工具',

@@ -9,7 +9,7 @@ import websockets
 from loguru import logger
 from websockets.exceptions import ConnectionClosed, ConnectionClosedOK, ConnectionClosedError
 
-from onebot.dispatcher import dispatcher
+from onebot.dispatcher import DISPATCHER
 from onebot.exceptionals import AuthenticationError, SendMessageError
 from onebot.filter.interfaces import Filter
 from onebot.routing import Router
@@ -75,7 +75,7 @@ class OneBot:
                     'router': self.router,
                     'context': {}
                 }
-                self.loop.create_task(dispatcher.handler(scope))
+                self.loop.create_task(DISPATCHER.handler(scope))
             except (ConnectionClosedError, ConnectionClosedOK):
                 await self._connect()
 

@@ -27,7 +27,7 @@ class EventComposite:
         self.dispatchers.append(handler)
 
 
-dispatcher = EventComposite()
-dispatcher.add_handler(MessageEventHandler())
-dispatcher.add_handler(EchoEventHandler())
-dispatcher.add_handler(RequestEvent())
+DISPATCHER = EventComposite()
+DISPATCHER.add_handler(MessageEventHandler())
+DISPATCHER.add_handler(EchoEventHandler())
+DISPATCHER.add_handler(RequestEvent())

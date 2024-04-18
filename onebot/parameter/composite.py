@@ -1,5 +1,5 @@
 from inspect import Parameter, signature
-from typing import Any, List, Dict, Set, Callable
+from typing import Any, List, Dict, Set, Callable, Tuple
 
 from onebot.exceptionals import ParameterError
 from onebot.parameter.interfaces import Resolver
@@ -8,7 +8,7 @@ from onebot.parameter.resolver.app import AppResolver
 from onebot.parameter.resolver.dependency import DependencyResolver
 
 
-class ResolverComposite(Resolver):
+class ResolverComposite:
     """
     参数解析器组合器
     """
@@ -16,45 +16,33 @@ class ResolverComposite(Resolver):
     def __init__(self):
         # 解析器
         self.argument_resolves: List[Resolver] = []
-        # 可解析参数缓存
-        self.resolver_cache: Dict[Parameter, Resolver] = {}
-        # 不可解析参数缓存
-        self.unsupported_parameters: Set[Parameter] = set()
+        # 可解析方法缓存
+        self.func_resolvers_cache: Dict[Callable, List[Tuple[Parameter, Resolver]]] = {}
+        # 不可解析方法缓存
+        self.func_unsupported: Set[Callable] = set()
 
-    def get_parameter_resolve(self, parameter):
-        if parameter in self.resolver_cache:
-            return self.resolver_cache[parameter]
-        if parameter in self.unsupported_parameters:
-            return
+    def get_parameter_resolver(self, parameter: Parameter):
         for resolver in self.argument_resolves:
             if resolver.support_parameter(parameter):
-                self.resolver_cache[parameter] = resolver
                 return resolver
-        self.unsupported_parameters.add(parameter)
 
-    def support_parameter(self, parameter: Parameter):
-        return self.get_parameter_resolve(parameter) is not None
-
-    def support_function(self, fn: Callable):
+    def get_function_resolvers(self, func: Callable) -> List[Tuple[Parameter, Resolver]]:
         """
-        检查函数参数是否支持解析
-        :param fn: 函数
+        获取方法的参数和对应的解析器
+        :param func:
         :return:
         """
-        arguments = signature(fn).parameters.values()
-        for param in arguments:
-            if not self.support_parameter(param):
-                raise ParameterError('参数不支持解析', fn, param)
-        return arguments
-
-    async def support(self, parameter: Parameter, scope: dict) -> bool:
-        return await self.get_parameter_resolve(parameter).support(parameter, scope)
-
-    async def resolve(self, parameter: Parameter, scope: dict) -> Any:
-        return await self.get_parameter_resolve(parameter).resolve(parameter, scope)
-
-    async def close(self, parameter, scope: dict):
-        await self.get_parameter_resolve(parameter).close(parameter, scope)
+        if func in self.func_resolvers_cache:
+            return self.func_resolvers_cache[func]
+        resolvers = []
+        for param in signature(func).parameters.values():
+            resolver = self.get_parameter_resolver(param)
+            if resolver:
+                resolvers.append((param, resolver))
+            else:
+                raise ParameterError('参数不支持解析', func, param)
+        self.func_resolvers_cache[func] = resolvers
+        return resolvers
 
     def add_resolve(self, resolver: Resolver):
         """
@@ -64,6 +52,6 @@ class ResolverComposite(Resolver):
         self.argument_resolves.append(resolver)
 
 
-parameters = ResolverComposite()
-parameters.add_resolve(AppResolver())
-parameters.add_resolve(DependencyResolver())
+PARAMETER_RESOLVER = ResolverComposite()
+PARAMETER_RESOLVER.add_resolve(AppResolver())
+PARAMETER_RESOLVER.add_resolve(DependencyResolver())
