@@ -72,8 +72,7 @@ class OneBot:
                 scope = {
                     'request': json.loads(recv_data),
                     'app': self,
-                    'router': self.router,
-                    'context': {}
+                    'router': self.router
                 }
                 self.loop.create_task(DISPATCHER.handler(scope))
             except (ConnectionClosedError, ConnectionClosedOK):
