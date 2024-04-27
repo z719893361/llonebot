@@ -238,68 +238,70 @@ class GetGroupInviteRequest(Dependency):
 
 
 class Depends(Dependency):
-    def __init__(self, fn, use_cache=True, args=None, kwargs=None):
+    def __init__(self, func, use_cache=True, args=None, kwargs=None):
         # 方法
         if kwargs is None:
             kwargs = {}
         if args is None:
             args = ()
-        # 函数
-        self.fn = fn
+        self.func = func
         self.args = args
         self.kwargs = kwargs
         # 是否使用缓存
         self.use_cache = use_cache
         # 异步生成器
-        self.is_asyncgen_func = isasyncgenfunction(fn)
+        self.is_asyncgen = isasyncgenfunction(func)
         # 同步生成器
-        self.is_generator_fn = isgeneratorfunction(fn)
+        self.is_generator = isgeneratorfunction(func)
         # 异步函数
-        self.is_async_fn = iscoroutinefunction(fn)
+        self.is_async_func = iscoroutinefunction(func)
         # 计算哈希
         items_tuple = tuple(sorted(kwargs.items()))
         # 结果哈希标识
-        self.cache_hash = hash((self.fn, self.args, items_tuple))
+        self.cache_key = hash((self.func, self.args, items_tuple))
         # 生成器哈希标识
-        self.generator_hash = hash((self.fn, self.args, items_tuple, 'generator'))
+        self.generator_key = hash((self.func, self.args, items_tuple, 'generator'))
 
     async def support(self, parameter: Parameter, scpe: dict) -> bool:
         return True
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Any:
-        context = scope['context']
-        if self.use_cache and self.cache_hash in context:
-            return context[self.cache_hash]
-        if self.is_generator_fn:
-            generator = self.fn(*self.args, **self.kwargs)
-            context[self.generator_hash] = generator
+        if self.use_cache and self.cache_key in scope:
+            return scope[self.cache_key]
+        if self.is_generator:
+            generator = self.func(*self.args, **self.kwargs)
+            scope[self.generator_key] = generator
             result = await asyncio.to_thread(next, generator)
-        elif self.is_asyncgen_func:
-            generator = self.fn(*self.args, **self.kwargs)
-            context[self.generator_hash] = generator
+        elif self.is_asyncgen:
+            generator = self.func(*self.args, **self.kwargs)
+            scope[self.generator_key] = generator
             result = await anext(generator)
-        elif self.is_async_fn:
-            result = await self.fn(*self.args, **self.kwargs)
+        elif self.is_async_func:
+            result = await self.func(*self.args, **self.kwargs)
         else:
-            result = await asyncio.to_thread(self.fn, *self.args, *self.kwargs)
+            result = await asyncio.to_thread(self.func, *self.args, *self.kwargs)
         if self.use_cache:
-            context[self.cache_hash] = result
+            scope[self.cache_key] = result
         return result
 
-    async def close(self, parameter: Parameter, scope: dict):
-        context = scope['context']
-        if self.generator_hash not in context:
+    async def close(self, parameter: Parameter, scope: dict, exc: Exception):
+        # 生成器是否存在
+        if self.generator_key not in scope:
             return
-        generator = context[self.generator_hash]
-        if self.is_generator_fn:
-            try:
-                while True:
-                    next(generator)
-            except StopIteration:
-                pass
-        elif self.is_asyncgen_func:
-            try:
-                while True:
-                    await anext(generator)
-            except StopAsyncIteration:
-                pass
+        generator = scope[self.generator_key]
+        if self.is_generator:
+            if exc is not None:
+                try:
+                    generator.throw(exc)
+                except StopIteration:
+                    pass
+            else:
+                next(generator)
+        elif self.is_asyncgen:
+            if exc is not None:
+                try:
+                    await generator.athrow(exc)
+                except StopAsyncIteration:
+                    pass
+            else:
+                await anext(generator)

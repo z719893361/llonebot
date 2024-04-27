@@ -14,5 +14,5 @@ class DependencyResolver(Resolver):
     async def resolve(self, parameter: Parameter, scope: dict) -> Any:
         return await parameter.default.resolve(parameter, scope)
 
-    async def close(self, parameter: Parameter, scope: dict):
-        await parameter.default.close(parameter, scope)
+    async def close(self, parameter: Parameter, scope: dict, exc: Exception):
+        await parameter.default.close(parameter, scope, exc)

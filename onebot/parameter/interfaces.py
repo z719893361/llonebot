@@ -21,7 +21,7 @@ class Resolver(ABC):
     async def resolve(self, parameter: Parameter, scope: dict) -> Any:
         pass
 
-    async def close(self, parameter, scope: dict):
+    async def close(self, parameter, scope: dict, exc: Exception):
         pass
 
 
@@ -35,5 +35,5 @@ class Dependency(ABC):
     async def resolve(self, parameter: Parameter, scope: dict) -> Any:
         pass
 
-    async def close(self, parameter: Parameter, scope: dict):
+    async def close(self, parameter: Parameter, scope: dict, exc: Exception):
         pass

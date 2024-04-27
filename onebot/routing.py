@@ -74,15 +74,17 @@ class Router:
 
     async def __call__(self, scope: dict):
         param_close = []
-        for route in self.routes:
-            try:
+        exc = None
+        try:
+            for route in self.routes:
                 if await route.matches(scope):
                     await route.handle(scope, param_close)
-            except Exception as e:
-                logger.exception(e)
+        except Exception as e:
+            logger.exception(e)
+            exc = e
         for param, resolver in param_close:
             try:
-                await resolver.close(param, scope)
+                await resolver.close(param, scope, exc)
             except Exception as e:
                 logger.exception(e)
 
