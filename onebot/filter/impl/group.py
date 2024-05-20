@@ -1,9 +1,9 @@
 from typing import Set
 
-from onebot.filter.interfaces import Filter
+from onebot.filter.interfaces import FilterInterface
 
 
-class At(Filter):
+class At(FilterInterface):
     def __init__(self, numbers: Set[int]):
         self.numbers = numbers
 
@@ -13,7 +13,7 @@ class At(Filter):
         return len(scope['at'] & self.numbers) > 0
 
 
-class AtMe(Filter):
+class AtMe(FilterInterface):
     async def support(self, scope: dict) -> bool:
         if 'at' not in scope or 'request' not in scope:
             return False
