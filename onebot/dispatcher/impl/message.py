@@ -118,12 +118,14 @@ class MessageProcessing:
                 continue
             strategy = self.strategies.get(message_type)
             strategy.process(message['data'], scope)
+        if 'text' in scope:
+            scope['full_text'] = ''.join(scope['text'])
 
     def add_processor(self, processor: Type[Processor]):
         self.strategies[processor.type] = processor()
 
 
-message_process_factory = MessageProcessing([
+message_processors = MessageProcessing([
     TextProcessor,
     AtProcessor,
     JsonProcessor,
@@ -147,5 +149,5 @@ class MessageEventHandler(EventDispatcher):
         else:
             logger.info("收到消息 - 用户: {user_id} 消息内容: {raw_message}", **request)
         router = scope['router']
-        message_process_factory.process(scope['request']['message'], scope)
+        message_processors.process(scope['request']['message'], scope)
         await router(scope)
