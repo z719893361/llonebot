@@ -11,7 +11,7 @@ from websockets.exceptions import ConnectionClosed, ConnectionClosedOK, Connecti
 
 from onebot.dispatcher import DISPATCHER
 from onebot.exceptionals import AuthenticationError, SendMessageError
-from onebot.filter.interfaces import Filter
+from onebot.filter.interfaces import FilterInterface
 from onebot.routing import Router
 from onebot.types import MessageBuilder, Login, Message, Friend, Group, GroupUser, Version
 
@@ -29,10 +29,12 @@ class OneBot:
         # 路由处理器
         self.router = Router()
 
-    def listener(self, filters: List[Filter] = None):
+    def listener(self, filters: List[FilterInterface] = None, order: int = 0, continue_: bool = False):
         def decorator(func):
-            self.router.register(func, filters)
+            self.router.register(func, filters, order, continue_)
 
+        if filters is None:
+            filters = []
         return decorator
 
     def on_event(self, event_type: str):
@@ -42,6 +44,7 @@ class OneBot:
         def decorator(func):
             self.router.crontab(func, spec, {'app': self, 'context': {}})
             return func
+
         return decorator
 
     async def _connect(self):
