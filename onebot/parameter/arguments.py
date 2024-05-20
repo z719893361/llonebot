@@ -128,15 +128,15 @@ class GetText(Dependency):
     获取文本
     """
 
-    def __init__(self, concat: bool = True, delimiter=''):
-        self.concat = concat
+    def __init__(self, joint: bool = True, delimiter=''):
+        self.joint = joint
         self.delimiter = delimiter
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
         return 'text' in scope
 
     async def resolve(self, parameter: Parameter, scope: dict) -> List[str] | str | None:
-        if self.concat:
+        if self.joint:
             return self.delimiter.join(scope['text'])
         else:
             return scope['text']
@@ -147,17 +147,17 @@ class GetJSON(Dependency):
     获取JSON
     """
 
-    def __init__(self, text=False):
-        self.text = text
+    def __init__(self, raw=False):
+        self.raw = raw
 
     async def support(self, parameter: Parameter, scope: dict) -> bool:
         return 'json' in scope
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Optional[dict]:
-        if self.text:
-            return scope.get('json')
+        if self.raw:
+            return scope['json']
         else:
-            return json.loads(scope.get('json'))
+            return json.loads(scope['json'])
 
 
 class GetImage(Dependency):
@@ -169,7 +169,7 @@ class GetImage(Dependency):
         return 'image' in scope
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Optional[List[Image]]:
-        return scope['context'].get('image')
+        return scope['image']
 
 
 class GetFace(Dependency):
@@ -181,7 +181,7 @@ class GetFace(Dependency):
         return 'face' in scope
 
     async def resolve(self, parameter: Parameter, scope: dict) -> List[int]:
-        return scope['context'].get('face')
+        return scope['face']
 
 
 class GetRecord(Dependency):
@@ -193,7 +193,7 @@ class GetRecord(Dependency):
         return 'record' in scope
 
     async def resolve(self, parameter: Parameter, scope: dict) -> Record:
-        return scope.get('record')
+        return scope['record']
 
 
 class GetFile(Dependency):
@@ -205,7 +205,7 @@ class GetFile(Dependency):
         return 'file' in scope
 
     async def resolve(self, parameter: Parameter, scope: dict) -> File:
-        return scope.get('file')
+        return scope['file']
 
 
 class GetFriendAddRequest(Dependency):
@@ -296,7 +296,10 @@ class Depends(Dependency):
                 except StopIteration:
                     pass
             else:
-                next(generator)
+                try:
+                    next(generator)
+                except StopIteration:
+                    pass
         elif self.is_asyncgen:
             if exc is not None:
                 try:
@@ -304,4 +307,7 @@ class Depends(Dependency):
                 except StopAsyncIteration:
                     pass
             else:
-                await anext(generator)
+                try:
+                    await anext(generator)
+                except StopAsyncIteration:
+                    pass
