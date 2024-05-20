@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class Filter(ABC):
+class FilterInterface(ABC):
     """
     消息过滤器
     """
